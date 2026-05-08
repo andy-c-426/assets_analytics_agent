@@ -39,6 +39,9 @@ tests/
 | GET | `/api/assets/{symbol}/price-history?period=` | OHLCV series |
 | POST | `/api/analyze/{symbol}` | LLM analysis (body: provider, model, api_key, base_url) |
 
-## Design Docs
+## Docs
 
-`docs/superpowers/specs/` — design specifications for features.
+- `docs/superpowers/specs/` — design specifications for features
+- `docs/superpowers/plans/` — implementation plans
+- `docs/superpowers/tasks/` — task breakdowns with status
+- `features/` — completed feature records with changed files and commits
