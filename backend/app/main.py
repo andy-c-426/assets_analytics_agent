@@ -14,6 +14,9 @@ app.add_middleware(
 from backend.app.activities.search import router as search_router
 app.include_router(search_router)
 
+from backend.app.activities.asset_detail import router as asset_router
+app.include_router(asset_router)
+
 
 @app.get("/api/health")
 def health():
