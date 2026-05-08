@@ -20,7 +20,7 @@ echo ""
 
 # Backend
 echo "[1/2] Starting backend on http://localhost:8000 ..."
-cd "$ROOT/backend"
+cd "$ROOT"
 uvicorn backend.app.main:app --reload --port 8000 &
 BACKEND_PID=$!
 
