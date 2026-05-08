@@ -11,6 +11,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from backend.app.activities.search import router as search_router
+app.include_router(search_router)
+
 
 @app.get("/api/health")
 def health():
