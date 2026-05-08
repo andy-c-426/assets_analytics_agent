@@ -20,6 +20,9 @@ app.include_router(asset_router)
 from backend.app.activities.price_history import router as price_history_router
 app.include_router(price_history_router)
 
+from backend.app.activities.analyze import router as analyze_router
+app.include_router(analyze_router)
+
 
 @app.get("/api/health")
 def health():
