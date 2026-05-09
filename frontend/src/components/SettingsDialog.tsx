@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { AnalysisRequest } from '../api/types';
+import styles from './SettingsDialog.module.css';
 
 const STORAGE_KEY = 'llm_settings';
 
@@ -42,50 +43,44 @@ export default function SettingsDialog({ open, onClose, onSaved }: Props) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100,
-    }} onClick={onClose}>
-      <div style={{
-        background: 'white', borderRadius: 12, padding: 28, maxWidth: 420, width: '90%',
-        boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
-      }} onClick={(e) => e.stopPropagation()}>
-        <h3 style={{ margin: '0 0 20px', fontSize: 20 }}>LLM Settings</h3>
+    <div className={styles.overlay} onClick={onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <h3 className={styles.title}>LLM Settings</h3>
 
-        <label style={labelStyle}>Provider</label>
-        <select value={provider} onChange={(e) => setProvider(e.target.value)} style={inputStyle}>
+        <label className={styles.label}>Provider</label>
+        <select value={provider} onChange={(e) => setProvider(e.target.value)} className={styles.select}>
           {PROVIDERS.map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
 
-        <label style={labelStyle}>Model Name</label>
+        <label className={styles.label}>Model Name</label>
         <input
           type="text" value={model} onChange={(e) => setModel(e.target.value)}
           placeholder={provider === 'claude' ? 'claude-sonnet-4-6' : provider === 'openai' ? 'gpt-4o' : 'deepseek-chat'}
-          style={inputStyle}
+          className={styles.input}
         />
 
-        <label style={labelStyle}>API Key</label>
+        <label className={styles.label}>API Key</label>
         <input
           type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)}
           placeholder="sk-..."
-          style={inputStyle}
+          className={styles.input}
         />
 
-        <label style={labelStyle}>Base URL (optional)</label>
+        <label className={styles.label}>Base URL (optional)</label>
         <input
           type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
           placeholder={provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'Leave empty for default'}
-          style={inputStyle}
+          className={styles.input}
         />
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button onClick={onClose} style={{ ...btnStyle, background: '#eee', color: '#555' }}>Cancel</button>
+        <div className={styles.actions}>
+          <button onClick={onClose} className={styles.btnCancel}>Cancel</button>
           <button
             onClick={handleSave}
             disabled={!model || !apiKey}
-            style={{ ...btnStyle, background: !model || !apiKey ? '#ccc' : '#1976d2', color: 'white' }}
+            className={styles.btnSave}
           >
             Save
           </button>
@@ -94,14 +89,3 @@ export default function SettingsDialog({ open, onClose, onSaved }: Props) {
     </div>
   );
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 4, marginTop: 12 };
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '8px 12px', borderRadius: 6, border: '1px solid #ddd',
-  fontSize: 14, boxSizing: 'border-box', outline: 'none',
-};
-
-const btnStyle: React.CSSProperties = {
-  padding: '8px 20px', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14, fontWeight: 500,
-};
