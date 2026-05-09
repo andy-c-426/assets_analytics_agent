@@ -84,9 +84,10 @@ def plan_node(state: AgentState) -> dict:
     try:
         content = content.strip()
         if content.startswith("```"):
-            content = content.split("\n", 1)[-1]
-            if content.endswith("```"):
-                content = content[:-3]
+            # Remove opening fence (with optional language specifier like ```json)
+            content = content.split("\n", 1)[-1] if "\n" in content else ""
+        if content.endswith("```"):
+            content = content[:-3].strip()
         plan: list[ToolCallPlan] = json.loads(content)
     except json.JSONDecodeError:
         plan = [{"tool": "fetch_asset_data", "args": {"symbol": state["symbol"]}}]
@@ -205,14 +206,7 @@ def observe_node(state: AgentState) -> dict:
             "next_action": "plan",
         }
 
-    if "error" in content_lower or "fail" in content_lower:
-        return {
-            "error": content.strip(),
-            "messages": messages,
-            "steps": steps,
-            "next_action": "done",
-        }
-
+    # Default: enough data collected, proceed to synthesis
     steps[-1]["detail"] = "Data sufficient — ready to synthesize"
     return {
         "messages": messages,
@@ -258,10 +252,10 @@ def synthesize_node(state: AgentState) -> dict:
     }
 
 
-def decide_next(state: AgentState) -> Literal["plan", "synthesize", "done"]:
-    action = state.get("next_action", "done")
+def decide_next(state: AgentState) -> Literal["plan", "synthesize", "__end__"]:
+    action = state.get("next_action", "synthesize")
     if action == "plan":
         return "plan"
     if action == "synthesize":
         return "synthesize"
-    return "done"
+    return "__end__"
