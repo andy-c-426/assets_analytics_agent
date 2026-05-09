@@ -32,6 +32,16 @@
   gap: var(--space-3);
 }
 
+.navLink {
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.navLink:hover {
+  color: var(--text-primary);
+}
+
 .themeToggle {
   display: flex;
   align-items: center;

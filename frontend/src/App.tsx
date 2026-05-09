@@ -12,7 +12,7 @@ function NavBar() {
         <span className={styles.logoAccent}>◆</span> Asset Analytics
       </Link>
       <div className={styles.navRight}>
-        <Link to="/" style={{ fontSize: 13, color: 'var(--text-muted)' }}>Search</Link>
+        <Link to="/" className={styles.navLink}>Search</Link>
         <ThemeToggle className={styles.themeToggle} />
       </div>
     </nav>
