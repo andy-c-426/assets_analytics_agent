@@ -79,3 +79,15 @@ export interface AnalysisResponse {
     news_count: number;
   };
 }
+
+export interface SSEEvent {
+  type: 'step_started' | 'tool_called' | 'tool_result' | 'reasoning_chunk' | 'report_ready' | 'error' | 'done';
+  data: Record<string, unknown>;
+}
+
+export interface ReasoningStep {
+  step_type: string;
+  status: 'pending' | 'active' | 'done';
+  message: string;
+  detail?: string;
+}

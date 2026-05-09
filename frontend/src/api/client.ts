@@ -42,3 +42,19 @@ export function analyzeAsset(
 ): Promise<AnalysisResponse> {
   return post<AnalysisResponse>(`/analyze/${encodeURIComponent(symbol)}`, config);
 }
+
+export async function analyzeAssetStream(
+  symbol: string,
+  config: AnalysisRequest,
+  signal?: AbortSignal
+): Promise<ReadableStream<Uint8Array>> {
+  const res = await fetch(`${BASE}/analyze/${encodeURIComponent(symbol)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+    signal,
+  });
+  if (!res.ok) throw new Error(`POST /analyze failed: ${res.status}`);
+  if (!res.body) throw new Error('No response body');
+  return res.body;
+}

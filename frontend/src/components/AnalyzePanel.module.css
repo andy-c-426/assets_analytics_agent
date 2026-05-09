@@ -103,3 +103,37 @@
 .resultContent strong {
   font-weight: 600;
 }
+
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+}
+
+.stepItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  transition: background var(--transition-fast);
+}
+
+.stepDone {
+  composes: stepItem;
+  color: var(--text-muted);
+}
+
+.stepActive {
+  composes: stepItem;
+  color: var(--text-primary);
+  background: var(--accent-subtle);
+}
+
+.stepPending {
+  composes: stepItem;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
