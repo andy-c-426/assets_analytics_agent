@@ -1,12 +1,12 @@
-// frontend/src/components/AssetDetail.tsx
 import type { AssetDetail as AssetDetailType } from '../api/types';
+import styles from './AssetDetail.module.css';
 
 function fmt(n?: number): string {
   if (n == null) return '—';
   if (Math.abs(n) >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
   if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
   if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
-  return n.toLocaleString();
+  return `$${n.toLocaleString()}`;
 }
 
 export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
@@ -14,20 +14,21 @@ export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
   const isPositive = (price.change ?? 0) >= 0;
 
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: 12 }}>
+    <div className={styles.card}>
+      <div className={styles.header}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 24 }}>{profile.name}</h2>
-          <div style={{ color: '#888', fontSize: 14, marginTop: 2 }}>
+          <h1 className={styles.title}>{profile.name}</h1>
+          <div className={styles.subtitle}>
             {asset.symbol} · {profile.sector || '—'} · {profile.country || '—'}
           </div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 28, fontWeight: 700 }}>
-            {price.current.toLocaleString()} <span style={{ fontSize: 14, color: '#888' }}>{price.currency}</span>
+        <div className={styles.price}>
+          <div className={styles.priceValue}>
+            {price.current.toLocaleString()}{' '}
+            <span className={styles.priceCurrency}>{price.currency}</span>
           </div>
           {price.change != null && (
-            <div style={{ color: isPositive ? '#2e7d32' : '#c62828', fontSize: 14, fontWeight: 500 }}>
+            <div className={isPositive ? styles.changeUp : styles.changeDown}>
               {isPositive ? '+' : ''}{price.change.toFixed(2)} ({isPositive ? '+' : ''}{price.change_pct?.toFixed(2)}%)
             </div>
           )}
@@ -35,10 +36,10 @@ export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
       </div>
 
       {profile.description && (
-        <p style={{ color: '#555', lineHeight: 1.6, marginTop: 16, fontSize: 14 }}>{profile.description}</p>
+        <p className={styles.description}>{profile.description}</p>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12, marginTop: 20 }}>
+      <div className={styles.metricsGrid}>
         <Metric label="Market Cap" value={fmt(profile.market_cap)} />
         <Metric label="P/E Ratio" value={metrics.pe_ratio?.toFixed(2)} />
         <Metric label="P/B Ratio" value={metrics.pb_ratio?.toFixed(2)} />
@@ -54,9 +55,9 @@ export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
 
 function Metric({ label, value }: { label: string; value?: string }) {
   return (
-    <div style={{ background: '#f9f9f9', padding: '10px 14px', borderRadius: 8 }}>
-      <div style={{ fontSize: 12, color: '#888' }}>{label}</div>
-      <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2 }}>{value || '—'}</div>
+    <div className={styles.metric}>
+      <div className={styles.metricLabel}>{label}</div>
+      <div className={styles.metricValue}>{value || '—'}</div>
     </div>
   );
 }
