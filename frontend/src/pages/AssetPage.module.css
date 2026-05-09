@@ -1,0 +1,25 @@
+.page {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) 60px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: var(--space-5);
+  transition: color var(--transition-fast);
+}
+
+.backLink:hover {
+  color: var(--text-primary);
+}
+
+.skeleton {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5);
+}

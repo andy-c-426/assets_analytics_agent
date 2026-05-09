@@ -1,13 +1,14 @@
-// frontend/src/pages/AssetPage.tsx
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { getAssetDetail } from '../api/client';
 import AssetDetailComponent from '../components/AssetDetail';
 import PriceChart from '../components/PriceChart';
 import NewsList from '../components/NewsList';
 import SettingsDialog from '../components/SettingsDialog';
 import AnalyzePanel from '../components/AnalyzePanel';
+import Skeleton from '../components/Skeleton';
 import type { AssetDetail, AnalysisRequest } from '../api/types';
+import styles from './AssetPage.module.css';
 
 export default function AssetPage() {
   const { symbol } = useParams<{ symbol: string }>();
@@ -27,12 +28,33 @@ export default function AssetPage() {
       .finally(() => setLoading(false));
   }, [symbol]);
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#999' }}>Loading {symbol}...</div>;
-  if (error) return <div style={{ padding: 40, textAlign: 'center', color: '#c62828' }}>Error: {error}</div>;
+  if (loading) {
+    return (
+      <div className={styles.skeleton}>
+        <Skeleton height={20} width={120} style={{ marginBottom: 24 }} />
+        <Skeleton height={180} style={{ marginBottom: 24 }} borderRadius={12} />
+        <Skeleton height={340} style={{ marginBottom: 24 }} borderRadius={12} />
+        <Skeleton height={200} borderRadius={12} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={styles.page}>
+        <Link to="/" className={styles.backLink}>&larr; Back to search</Link>
+        <div style={{ padding: 24, background: 'var(--red-subtle)', color: 'var(--red)', borderRadius: 'var(--radius-md)', fontSize: 14 }}>
+          Error: {error}
+        </div>
+      </div>
+    );
+  }
+
   if (!asset) return null;
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '24px 20px 60px' }}>
+    <div className={styles.page}>
+      <Link to="/" className={styles.backLink}>&larr; Back to search</Link>
       <AssetDetailComponent asset={asset} />
       <PriceChart symbol={asset.symbol} />
       <NewsList news={asset.news} />
