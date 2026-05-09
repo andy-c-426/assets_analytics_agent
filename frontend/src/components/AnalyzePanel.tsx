@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import { analyzeAsset } from '../api/client';
 import { loadSettings } from './SettingsDialog';
 import type { AnalysisResponse } from '../api/types';
+import styles from './AnalyzePanel.module.css';
 
 interface Props {
   symbol: string;
@@ -34,41 +35,28 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+    <div className={styles.panel}>
+      <div className={styles.actions}>
         <button
           onClick={handleAnalyze}
           disabled={loading}
-          style={{
-            padding: '10px 24px', background: loading ? '#ccc' : '#10b981', color: 'white',
-            border: 'none', borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+          className={styles.btnAnalyze}
         >
           {loading ? 'Analyzing...' : 'Analyze with AI'}
         </button>
-        <button
-          onClick={onOpenSettings}
-          style={{
-            padding: '10px 16px', background: 'transparent', border: '1px solid #ddd',
-            borderRadius: 8, fontSize: 13, cursor: 'pointer', color: '#666',
-          }}
-        >
+        <button onClick={onOpenSettings} className={styles.btnSettings}>
           LLM Settings
         </button>
       </div>
 
-      {error && (
-        <div style={{ padding: 12, background: '#fff3f3', color: '#c62828', borderRadius: 8, fontSize: 14, marginBottom: 12 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className={styles.error}>{error}</div>}
 
       {result && (
-        <div style={{ background: '#fafafa', border: '1px solid #eee', borderRadius: 12, padding: 20, marginTop: 8 }}>
-          <div style={{ fontSize: 12, color: '#999', marginBottom: 16 }}>
+        <div className={styles.result}>
+          <div className={styles.resultMeta}>
             Analysis by {result.model_used} · {result.context_sent.news_count} news articles
           </div>
-          <div style={{ lineHeight: 1.7, fontSize: 14 }}>
+          <div className={styles.resultContent}>
             <ReactMarkdown>{result.analysis}</ReactMarkdown>
           </div>
         </div>
