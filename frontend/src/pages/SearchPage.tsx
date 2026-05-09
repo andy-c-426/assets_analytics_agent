@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import SearchBar from '../components/SearchBar';
 import type { AssetSearchResult } from '../api/types';
+import styles from './SearchPage.module.css';
+
+const POPULAR = ['AAPL', 'MSFT', '0700.HK', '300502.SZ', '7203.T', '^GSPC'];
 
 export default function SearchPage() {
   const navigate = useNavigate();
@@ -9,13 +12,24 @@ export default function SearchPage() {
     navigate(`/asset/${encodeURIComponent(result.symbol)}`);
   }
 
+  function handleChip(symbol: string) {
+    navigate(`/asset/${encodeURIComponent(symbol)}`);
+  }
+
   return (
-    <div style={{ maxWidth: 600, margin: '80px auto 0', padding: '0 20px', textAlign: 'center' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Asset Analytics</h1>
-      <p style={{ color: '#666', marginBottom: 32 }}>
-        Search any stock or ETF across global markets. Get AI-powered analysis.
+    <div className={styles.page}>
+      <h1 className={styles.heroTitle}>Analyze Any Asset, Globally</h1>
+      <p className={styles.heroSub}>
+        Real-time data · AI-powered insights
       </p>
       <SearchBar onSelect={handleSelect} />
+      <div className={styles.chips}>
+        {POPULAR.map((s) => (
+          <button key={s} className={styles.chip} onClick={() => handleChip(s)}>
+            {s}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
