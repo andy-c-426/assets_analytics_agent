@@ -24,7 +24,7 @@ def test_analyze_endpoint_validates_body():
         "/analyze/AAPL",
         json={"provider": "", "model": "", "api_key": ""},
     )
-    assert response.status_code in (200, 422, 400)
+    assert response.status_code == 422
 
 
 def test_router_is_mounted():

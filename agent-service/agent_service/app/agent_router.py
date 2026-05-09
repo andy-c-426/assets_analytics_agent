@@ -3,7 +3,7 @@ from typing import AsyncGenerator
 
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agent_service.app.state import AgentState
 from agent_service.app.graph import build_graph
@@ -14,9 +14,9 @@ router = APIRouter()
 
 
 class AnalyzeRequest(BaseModel):
-    provider: str
-    model: str
-    api_key: str
+    provider: str = Field(min_length=1)
+    model: str = Field(min_length=1)
+    api_key: str = Field(min_length=1)
     base_url: str | None = None
 
 
@@ -60,17 +60,18 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
         # Run the graph in a thread pool to avoid blocking the event loop
         final_state = await asyncio.to_thread(compiled.invoke, initial_state)
 
-        # Emit all steps from the state
+        # Emit all steps from the state, replaying tool calls with results
+        result_idx = 0
+        tool_results = final_state.get("tool_results", [])
         for step in final_state.get("steps", []):
             if step["step_type"] == "planning":
                 yield events.step_started("planning", step["message"])
-            elif step["step_type"] == "tool_call":
-                if step["status"] == "active":
-                    pass  # tool_called already emitted during execution
-                elif step["status"] == "done":
-                    for r in final_state.get("tool_results", []):
-                        if r["tool"] in step.get("message", ""):
-                            yield events.tool_result(r["tool"], r["summary"])
+            elif step["step_type"] == "tool_call" and step["status"] == "done":
+                if result_idx < len(tool_results):
+                    r = tool_results[result_idx]
+                    yield events.tool_called(r["tool"], r.get("args", {}))
+                    yield events.tool_result(r["tool"], r["summary"])
+                    result_idx += 1
             elif step["step_type"] == "evaluating":
                 yield events.step_started("evaluating", step["message"])
             elif step["step_type"] == "synthesizing":
