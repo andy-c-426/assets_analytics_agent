@@ -1,28 +1,41 @@
+import httpx
 from fastapi import APIRouter
-from backend.app.models.schemas import AnalysisRequest, AnalysisResponse
-from backend.app.proxy.yfinance import fetch_asset
-from backend.app.proxy.llm import build_context, analyze as analyze_asset
+from fastapi.responses import StreamingResponse
+from backend.app.models.schemas import AnalysisRequest
 
 router = APIRouter()
 
+AGENT_SERVICE_URL = "http://localhost:8001"
 
-@router.post("/api/analyze/{symbol}", response_model=AnalysisResponse)
-def analyze_endpoint(symbol: str, body: AnalysisRequest):
-    asset = fetch_asset(symbol)
-    context = build_context(asset)
-    analysis_text = analyze_asset(
-        provider=body.provider,
-        model=body.model,
-        api_key=body.api_key,
-        context=context,
-        base_url=body.base_url,
-    )
-    return AnalysisResponse(
-        symbol=symbol,
-        analysis=analysis_text,
-        model_used=body.model,
-        context_sent={
-            "data_points": len(context.split("\n")),
-            "news_count": len(asset.news),
+
+@router.post("/api/analyze/{symbol}")
+async def analyze_endpoint(symbol: str, body: AnalysisRequest):
+    """Proxy the analyze request to the agent service, streaming SSE back."""
+    client = httpx.AsyncClient(timeout=120.0)
+
+    async def stream():
+        try:
+            async with client.stream(
+                "POST",
+                f"{AGENT_SERVICE_URL}/analyze/{symbol}",
+                json={
+                    "provider": body.provider,
+                    "model": body.model,
+                    "api_key": body.api_key,
+                    "base_url": body.base_url,
+                },
+            ) as response:
+                async for chunk in response.aiter_bytes():
+                    yield chunk
+        finally:
+            await client.aclose()
+
+    return StreamingResponse(
+        stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
         },
     )
