@@ -15,3 +15,6 @@ app.add_middleware(
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+from agent_service.app.agent_router import router as agent_router
+app.include_router(agent_router)
