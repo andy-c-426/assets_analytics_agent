@@ -73,6 +73,7 @@ class AnalysisRequest(BaseModel):
     model: str
     api_key: str
     base_url: Optional[str] = None
+    finnhub_api_key: Optional[str] = None
 
 
 class AnalysisResponse(BaseModel):

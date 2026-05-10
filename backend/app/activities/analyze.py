@@ -23,6 +23,7 @@ async def analyze_endpoint(symbol: str, body: AnalysisRequest):
                     "model": body.model,
                     "api_key": body.api_key,
                     "base_url": body.base_url,
+                    "finnhub_api_key": body.finnhub_api_key,
                 },
             ) as response:
                 async for chunk in response.aiter_bytes():

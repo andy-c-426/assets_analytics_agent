@@ -32,11 +32,12 @@ export default function SettingsDialog({ open, onClose, onSaved }: Props) {
   const [model, setModel] = useState(existing?.model || '');
   const [apiKey, setApiKey] = useState(existing?.api_key || '');
   const [baseUrl, setBaseUrl] = useState(existing?.base_url || '');
+  const [finnhubKey, setFinnhubKey] = useState(existing?.finnhub_api_key || '');
 
   if (!open) return null;
 
   function handleSave() {
-    const settings: AnalysisRequest = { provider, model, api_key: apiKey, base_url: baseUrl || undefined };
+    const settings: AnalysisRequest = { provider, model, api_key: apiKey, base_url: baseUrl || undefined, finnhub_api_key: finnhubKey || undefined };
     saveSettings(settings);
     onSaved(settings);
     onClose();
@@ -72,6 +73,13 @@ export default function SettingsDialog({ open, onClose, onSaved }: Props) {
         <input
           type="text" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)}
           placeholder={provider === 'deepseek' ? 'https://api.deepseek.com/v1' : 'Leave empty for default'}
+          className={styles.input}
+        />
+
+        <label className={styles.label}>Finnhub API Key (optional — for news)</label>
+        <input
+          type="password" value={finnhubKey} onChange={(e) => setFinnhubKey(e.target.value)}
+          placeholder="Free key from https://finnhub.io/register"
           className={styles.input}
         />
 

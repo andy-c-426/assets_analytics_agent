@@ -68,6 +68,7 @@ export interface AnalysisRequest {
   model: string;
   api_key: string;
   base_url?: string;
+  finnhub_api_key?: string;
 }
 
 export interface AnalysisResponse {
