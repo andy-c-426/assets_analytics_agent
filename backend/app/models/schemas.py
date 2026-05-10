@@ -74,6 +74,7 @@ class AnalysisRequest(BaseModel):
     api_key: str
     base_url: Optional[str] = None
     finnhub_api_key: Optional[str] = None
+    language: Optional[str] = None
 
 
 class AnalysisResponse(BaseModel):

@@ -1,12 +1,14 @@
+import { useLocale } from '../i18n/LocaleContext';
 import type { NewsArticle } from '../api/types';
 import styles from './NewsList.module.css';
 
 export default function NewsList({ news }: { news: NewsArticle[] }) {
+  const { t } = useLocale();
   if (news.length === 0) return null;
 
   return (
     <div className={styles.card}>
-      <h3 className={styles.sectionTitle}>Recent News</h3>
+      <h3 className={styles.sectionTitle}>{t('news.title')}</h3>
       <div className={styles.list}>
         {news.map((article, i) => (
           <a

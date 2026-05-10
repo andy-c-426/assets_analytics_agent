@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { searchAssets } from '../api/client';
+import { useLocale } from '../i18n/LocaleContext';
 import type { AssetSearchResult } from '../api/types';
 import styles from './SearchBar.module.css';
 
 export default function SearchBar({ onSelect }: { onSelect: (r: AssetSearchResult) => void }) {
+  const { t } = useLocale();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AssetSearchResult[]>([]);
   const [open, setOpen] = useState(false);
@@ -45,10 +47,10 @@ export default function SearchBar({ onSelect }: { onSelect: (r: AssetSearchResul
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results.length > 0 && setOpen(true)}
-        placeholder="Search ticker or name (e.g. AAPL, 0700.HK, 300502.SZ)..."
+        placeholder={t('search.placeholder')}
         className={styles.input}
       />
-      {loading && <div className={styles.searching}>Searching...</div>}
+      {loading && <div className={styles.searching}>{t('search.searching')}</div>}
       {open && results.length > 0 && (
         <ul className={styles.dropdown}>
           {results.map((r) => (

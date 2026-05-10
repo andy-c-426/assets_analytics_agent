@@ -22,6 +22,7 @@ class ToolResult(TypedDict):
 
 class AgentState(TypedDict):
     symbol: str
+    language: NotRequired[str]
     llm_config: dict         # provider, model, api_key, base_url
     plan: list[ToolCallPlan]
     tool_results: list[ToolResult]

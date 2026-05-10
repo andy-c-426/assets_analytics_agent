@@ -64,6 +64,57 @@ Structure your analysis with:
 Be objective. Highlight both positives and negatives. Do not give specific buy/sell recommendations.
 Use markdown formatting for readability."""
 
+LANGUAGE_INSTRUCTIONS: dict[str, str] = {
+    "en": "You are writing in English. All analysis and output must be in English.",
+    "zh-CN": "You are writing in Simplified Chinese (简体中文). All analysis and output must be in Chinese. Use Chinese financial terminology naturally.",
+}
+
+SYNTHESIZE_STRUCTURE: dict[str, str] = {
+    "en": """Structure your analysis with:
+1. **Overview** — Brief summary of the company and current situation (mention the analysis date)
+2. **Key Metrics Analysis** — What the numbers mean
+3. **Technical Analysis** — Trend and momentum assessment (if data available)
+4. **Recent News Impact** — How recent news may affect the asset
+5. **Risks & Opportunities**
+6. **Outlook** — Short to medium term outlook
+
+Be objective. Highlight both positives and negatives. Do not give specific buy/sell recommendations.
+Use markdown formatting for readability.""",
+    "zh-CN": """请按以下结构撰写分析报告：
+1. **概述** — 公司及当前情况简要介绍（注明分析日期）
+2. **关键指标分析** — 解读各项数据的含义
+3. **技术分析** — 趋势与动能评估（如有数据）
+4. **近期新闻影响** — 近期新闻对资产的潜在影响
+5. **风险与机遇**
+6. **展望** — 中短期前景
+
+保持客观，同时呈现利好和利空因素。不要给出具体的买入/卖出建议。
+使用 Markdown 格式提升可读性。""",
+}
+
+
+def apply_language_instruction(prompt: str, language: str) -> str:
+    """Prepend language instruction to the prompt."""
+    instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["en"])
+    return instruction + "\n\n" + prompt
+
+
+def build_synthesize_prompt(symbol: str, enriched_data: str, current_date: str, language: str) -> str:
+    """Build the synthesize prompt with language-appropriate structure."""
+    instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["en"])
+    structure = SYNTHESIZE_STRUCTURE.get(language, SYNTHESIZE_STRUCTURE["en"])
+
+    return f"""{instruction}
+
+You are a professional financial analyst. Write a comprehensive analysis of {symbol} based on the data collected below.
+
+Today is {current_date}.
+
+{enriched_data}
+
+{structure}"""
+
+
 TOOL_REGISTRY = """
 - fetch_asset_data(symbol): Fetch complete asset profile, current price, key metrics, and recent news from yfinance
 - fetch_futu_data(symbol): Fetch real-time stock/ETF data from Futu OpenD with yfinance fallback. Richer real-time data (market snapshot, basic info) when Futu is available

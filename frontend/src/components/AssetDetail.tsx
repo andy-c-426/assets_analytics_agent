@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocale } from '../i18n/LocaleContext';
 import type { AssetDetail as AssetDetailType } from '../api/types';
 import styles from './AssetDetail.module.css';
 
@@ -13,6 +14,7 @@ function fmt(n?: number): string {
 }
 
 export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
+  const { t } = useLocale();
   const { profile, price, metrics } = asset;
   const isPositive = (price.change ?? 0) >= 0;
   const [descExpanded, setDescExpanded] = useState(false);
@@ -52,21 +54,21 @@ export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
               className={styles.moreBtn}
               onClick={() => setDescExpanded((v) => !v)}
             >
-              {descExpanded ? 'Show less' : 'Show more'}
+              {descExpanded ? t('detail.showLess') : t('detail.showMore')}
             </button>
           )}
         </div>
       )}
 
       <div className={styles.metricsGrid}>
-        <Metric label="Market Cap" value={fmt(profile.market_cap)} />
-        <Metric label="P/E Ratio" value={metrics.pe_ratio?.toFixed(2)} />
-        <Metric label="P/B Ratio" value={metrics.pb_ratio?.toFixed(2)} />
-        <Metric label="EPS" value={metrics.eps != null ? `$${metrics.eps.toFixed(2)}` : undefined} />
-        <Metric label="Dividend Yield" value={metrics.dividend_yield != null ? `${(metrics.dividend_yield * 100).toFixed(2)}%` : undefined} />
-        <Metric label="Beta" value={metrics.beta?.toFixed(2)} />
-        <Metric label="52W High" value={metrics.fifty_two_week_high?.toFixed(2)} />
-        <Metric label="52W Low" value={metrics.fifty_two_week_low?.toFixed(2)} />
+        <Metric label={t('detail.marketCap')} value={fmt(profile.market_cap)} />
+        <Metric label={t('detail.peRatio')} value={metrics.pe_ratio?.toFixed(2)} />
+        <Metric label={t('detail.pbRatio')} value={metrics.pb_ratio?.toFixed(2)} />
+        <Metric label={t('detail.eps')} value={metrics.eps != null ? `$${metrics.eps.toFixed(2)}` : undefined} />
+        <Metric label={t('detail.dividendYield')} value={metrics.dividend_yield != null ? `${(metrics.dividend_yield * 100).toFixed(2)}%` : undefined} />
+        <Metric label={t('detail.beta')} value={metrics.beta?.toFixed(2)} />
+        <Metric label={t('detail.52wHigh')} value={metrics.fifty_two_week_high?.toFixed(2)} />
+        <Metric label={t('detail.52wLow')} value={metrics.fifty_two_week_low?.toFixed(2)} />
       </div>
     </div>
   );

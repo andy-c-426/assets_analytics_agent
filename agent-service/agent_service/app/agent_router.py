@@ -20,6 +20,7 @@ class AnalyzeRequest(BaseModel):
     api_key: str = Field(min_length=1)
     base_url: str | None = None
     finnhub_api_key: str | None = None
+    language: str | None = None
 
 
 @router.post("/analyze/{symbol}")
@@ -44,6 +45,7 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
 
         initial_state: AgentState = {
             "symbol": symbol,
+            "language": body.language or "en",
             "llm_config": {
                 "provider": body.provider,
                 "model": body.model,

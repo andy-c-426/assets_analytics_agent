@@ -8,12 +8,14 @@ import math
 from datetime import datetime, timezone
 
 
-def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str) -> dict:
+def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str, language: str = "en") -> dict:
     """Parse raw tool results and compute Bloomberg-style derived metrics.
 
     Returns a dict keyed by category, each containing pre-formatted markdown sections
     ready to inject into LLM prompts.
     """
+    is_zh = language == "zh-CN"
+
     metrics: dict[str, list[str]] = {
         "valuation": [],
         "momentum": [],
@@ -32,24 +34,45 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str)
 
     if pe is not None:
         if pe < 0:
-            metrics["valuation"].append(f"P/E: Negative (unprofitable)")
+            metrics["valuation"].append(
+                "P/E: Negative (unprofitable)" if not is_zh else "市盈率: 负值（亏损）"
+            )
         elif pe < 15:
-            metrics["valuation"].append(f"P/E: {pe:.1f} (Value territory — below 15x)")
+            metrics["valuation"].append(
+                f"P/E: {pe:.1f} (Value territory — below 15x)" if not is_zh
+                else f"市盈率: {pe:.1f}（价值区间 — 低于 15 倍）"
+            )
         elif pe < 25:
-            metrics["valuation"].append(f"P/E: {pe:.1f} (Fair value — 15-25x range)")
+            metrics["valuation"].append(
+                f"P/E: {pe:.1f} (Fair value — 15-25x range)" if not is_zh
+                else f"市盈率: {pe:.1f}（合理估值 — 15-25 倍区间）"
+            )
         else:
-            metrics["valuation"].append(f"P/E: {pe:.1f} (Growth premium — above 25x)")
+            metrics["valuation"].append(
+                f"P/E: {pe:.1f} (Growth premium — above 25x)" if not is_zh
+                else f"市盈率: {pe:.1f}（成长溢价 — 高于 25 倍）"
+            )
 
     if pb is not None:
         if pb < 1.0:
-            metrics["valuation"].append(f"P/B: {pb:.2f} (Below book value)")
+            metrics["valuation"].append(
+                f"P/B: {pb:.2f} (Below book value)" if not is_zh
+                else f"市净率: {pb:.2f}（低于账面价值）"
+            )
         elif pb < 3.0:
-            metrics["valuation"].append(f"P/B: {pb:.2f} (Moderate premium to book)")
+            metrics["valuation"].append(
+                f"P/B: {pb:.2f} (Moderate premium to book)" if not is_zh
+                else f"市净率: {pb:.2f}（适度溢价）"
+            )
         else:
-            metrics["valuation"].append(f"P/B: {pb:.2f} (High premium to book)")
+            metrics["valuation"].append(
+                f"P/B: {pb:.2f} (High premium to book)" if not is_zh
+                else f"市净率: {pb:.2f}（高溢价）"
+            )
 
     if mkt_cap is not None:
-        metrics["valuation"].append(f"Market Cap: {_fmt_cap(mkt_cap)}")
+        label = "Market Cap" if not is_zh else "总市值"
+        metrics["valuation"].append(f"{label}: {_fmt_cap(mkt_cap)}")
 
     # ── Momentum ───────────────────────────────────────────────
     if prices and len(prices) >= 20:
@@ -59,95 +82,156 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str)
         sma_50 = sum(prices[-min(50, len(prices)):]) / min(50, len(prices))
         rsi = _compute_rsi(prices, 14)
 
-        metrics["momentum"].append(f"Current Price: ${current:.2f}")
+        if is_zh:
+            metrics["momentum"].append(f"当前价格: ${current:.2f}")
+        else:
+            metrics["momentum"].append(f"Current Price: ${current:.2f}")
 
         if "1w" in returns:
-            metrics["momentum"].append(f"1-Week Return: {returns['1w']:+.2f}%")
+            if is_zh:
+                metrics["momentum"].append(f"1 周回报: {returns['1w']:+.2f}%")
+            else:
+                metrics["momentum"].append(f"1-Week Return: {returns['1w']:+.2f}%")
         if "1m" in returns:
-            metrics["momentum"].append(f"1-Month Return: {returns['1m']:+.2f}%")
+            if is_zh:
+                metrics["momentum"].append(f"1 月回报: {returns['1m']:+.2f}%")
+            else:
+                metrics["momentum"].append(f"1-Month Return: {returns['1m']:+.2f}%")
         if "3m" in returns:
-            metrics["momentum"].append(f"3-Month Return: {returns['3m']:+.2f}%")
+            if is_zh:
+                metrics["momentum"].append(f"3 月回报: {returns['3m']:+.2f}%")
+            else:
+                metrics["momentum"].append(f"3-Month Return: {returns['3m']:+.2f}%")
 
         vs_sma20 = ((current - sma_20) / sma_20) * 100
-        metrics["momentum"].append(
-            f"vs SMA(20): {vs_sma20:+.1f}% ({'Above' if vs_sma20 > 0 else 'Below'} short-term trend)"
-        )
+        if is_zh:
+            direction = "高于" if vs_sma20 > 0 else "低于"
+            metrics["momentum"].append(
+                f"相对 SMA(20): {vs_sma20:+.1f}%（{direction}短期趋势）"
+            )
+        else:
+            direction = "Above" if vs_sma20 > 0 else "Below"
+            metrics["momentum"].append(
+                f"vs SMA(20): {vs_sma20:+.1f}% ({direction} short-term trend)"
+            )
 
         if rsi is not None:
             if rsi > 70:
-                zone = "Overbought"
+                zone = "Overbought" if not is_zh else "超买"
             elif rsi < 30:
-                zone = "Oversold"
+                zone = "Oversold" if not is_zh else "超卖"
             elif rsi > 50:
-                zone = "Bullish momentum"
+                zone = "Bullish momentum" if not is_zh else "看涨动能"
             else:
-                zone = "Bearish momentum"
+                zone = "Bearish momentum" if not is_zh else "看跌动能"
             metrics["momentum"].append(f"RSI(14): {rsi:.1f} ({zone})")
 
     # ── Risk ───────────────────────────────────────────────────
     beta = info.get("beta")
     if beta is not None:
         if beta < 0.8:
-            metrics["risk"].append(f"Beta: {beta:.2f} (Defensive — less volatile than market)")
+            metrics["risk"].append(
+                f"Beta: {beta:.2f} (Defensive — less volatile than market)" if not is_zh
+                else f"贝塔系数: {beta:.2f}（防御型 — 波动性低于市场）"
+            )
         elif beta < 1.2:
-            metrics["risk"].append(f"Beta: {beta:.2f} (Market-like volatility)")
+            metrics["risk"].append(
+                f"Beta: {beta:.2f} (Market-like volatility)" if not is_zh
+                else f"贝塔系数: {beta:.2f}（市场同步波动）"
+            )
         else:
-            metrics["risk"].append(f"Beta: {beta:.2f} (Aggressive — more volatile than market)")
+            metrics["risk"].append(
+                f"Beta: {beta:.2f} (Aggressive — more volatile than market)" if not is_zh
+                else f"贝塔系数: {beta:.2f}（激进型 — 波动性高于市场）"
+            )
 
     high_52w = info.get("high_52w")
     low_52w = info.get("low_52w")
     if price is not None and high_52w is not None and low_52w is not None and high_52w > 0:
         pct_from_high = ((price - high_52w) / high_52w) * 100
         pct_from_low = ((price - low_52w) / low_52w) * 100
-        metrics["risk"].append(
-            f"52-Week Range: ${low_52w:.2f} – ${high_52w:.2f}"
-        )
-        metrics["risk"].append(
-            f"Position: {pct_from_high:+.1f}% from high, {pct_from_low:+.1f}% from low"
-        )
+        if is_zh:
+            metrics["risk"].append(
+                f"52 周区间: ${low_52w:.2f} – ${high_52w:.2f}"
+            )
+            metrics["risk"].append(
+                f"位置: 距高点 {pct_from_high:+.1f}%，距低点 {pct_from_low:+.1f}%"
+            )
+        else:
+            metrics["risk"].append(
+                f"52-Week Range: ${low_52w:.2f} – ${high_52w:.2f}"
+            )
+            metrics["risk"].append(
+                f"Position: {pct_from_high:+.1f}% from high, {pct_from_low:+.1f}% from low"
+            )
 
     if prices and len(prices) >= 30:
         drawdown = _max_drawdown(prices)
         volatility = _daily_volatility(prices)
         if drawdown is not None:
-            metrics["risk"].append(f"Max Drawdown ({len(prices)}d): {drawdown:.1f}%")
+            if is_zh:
+                metrics["risk"].append(f"最大回撤（{len(prices)} 日）: {drawdown:.1f}%")
+            else:
+                metrics["risk"].append(f"Max Drawdown ({len(prices)}d): {drawdown:.1f}%")
         if volatility is not None:
-            metrics["risk"].append(f"Daily Volatility (ann.): {volatility:.1f}%")
+            if is_zh:
+                metrics["risk"].append(f"年化日波动率: {volatility:.1f}%")
+            else:
+                metrics["risk"].append(f"Daily Volatility (ann.): {volatility:.1f}%")
 
     # ── Profitability ──────────────────────────────────────────
     eps = info.get("eps")
     if eps is not None and eps > 0:
-        metrics["profitability"].append(f"EPS (TTM): ${eps:.2f}")
+        if is_zh:
+            metrics["profitability"].append(f"每股收益 (TTM): ${eps:.2f}")
+        else:
+            metrics["profitability"].append(f"EPS (TTM): ${eps:.2f}")
 
     div_yield = info.get("dividend_yield")
     if div_yield is not None:
-        metrics["profitability"].append(f"Dividend Yield: {div_yield * 100:.2f}%")
+        if is_zh:
+            metrics["profitability"].append(f"股息率: {div_yield * 100:.2f}%")
+        else:
+            metrics["profitability"].append(f"Dividend Yield: {div_yield * 100:.2f}%")
 
     # Market cap context
     if mkt_cap is not None:
         if mkt_cap >= 200e9:
-            metrics["profitability"].append("Size: Mega-cap (≥ $200B)")
+            label = "Size: Mega-cap (≥ $200B)" if not is_zh else "规模: 超大盘（≥ 2000 亿美元）"
         elif mkt_cap >= 10e9:
-            metrics["profitability"].append("Size: Large-cap ($10B–$200B)")
+            label = "Size: Large-cap ($10B–$200B)" if not is_zh else "规模: 大盘（100 亿 – 2000 亿美元）"
         elif mkt_cap >= 2e9:
-            metrics["profitability"].append("Size: Mid-cap ($2B–$10B)")
+            label = "Size: Mid-cap ($2B–$10B)" if not is_zh else "规模: 中盘（20 亿 – 100 亿美元）"
         else:
-            metrics["profitability"].append("Size: Small-cap (< $2B)")
+            label = "Size: Small-cap (< $2B)" if not is_zh else "规模: 小盘（< 20 亿美元）"
+        metrics["profitability"].append(label)
 
     return metrics
 
 
-def format_analytics_dashboard(metrics: dict, symbol: str) -> str:
+def format_analytics_dashboard(metrics: dict, symbol: str, language: str = "en") -> str:
     """Render the analytics dict as a markdown dashboard for LLM prompts."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    sections = [f"## Pre-Computed Analytics Dashboard: {symbol}"]
+    is_zh = language == "zh-CN"
 
-    section_labels = {
-        "valuation": "Valuation Context",
-        "momentum": "Momentum & Trend",
-        "risk": "Risk & Positioning",
-        "profitability": "Profitability & Scale",
-    }
+    title = f"## Pre-Computed Analytics Dashboard: {symbol}" if not is_zh else f"## 预计算分析面板: {symbol}"
+    sections = [title]
+
+    section_labels: dict[str, str]
+    if is_zh:
+        section_labels = {
+            "valuation": "估值分析",
+            "momentum": "动能与趋势",
+            "risk": "风险与仓位",
+            "profitability": "盈利能力与规模",
+        }
+    else:
+        section_labels = {
+            "valuation": "Valuation Context",
+            "momentum": "Momentum & Trend",
+            "risk": "Risk & Positioning",
+            "profitability": "Profitability & Scale",
+        }
 
     for key, label in section_labels.items():
         items = metrics.get(key, [])

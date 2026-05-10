@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { getPriceHistory } from '../api/client';
+import { useLocale } from '../i18n/LocaleContext';
 import type { OHLCV } from '../api/types';
 import styles from './PriceChart.module.css';
 
@@ -13,6 +14,7 @@ const PERIODS = [
 ];
 
 export default function PriceChart({ symbol }: { symbol: string }) {
+  const { t } = useLocale();
   const [period, setPeriod] = useState('1mo');
   const [data, setData] = useState<OHLCV[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +32,7 @@ export default function PriceChart({ symbol }: { symbol: string }) {
   return (
     <div className={styles.card}>
       <div className={styles.header}>
-        <h3 className={styles.sectionTitle}>Price History</h3>
+        <h3 className={styles.sectionTitle}>{t('chart.title')}</h3>
         <div className={styles.periods}>
           {PERIODS.map((p) => (
             <button
@@ -38,15 +40,15 @@ export default function PriceChart({ symbol }: { symbol: string }) {
               onClick={() => setPeriod(p.value)}
               className={`${styles.periodBtn} ${period === p.value ? styles.periodBtnActive : ''}`}
             >
-              {p.label}
+              {t(`chart.${p.label}`)}
             </button>
           ))}
         </div>
       </div>
       {loading ? (
-        <div className={styles.empty}>Loading chart...</div>
+        <div className={styles.empty}>{t('chart.loading')}</div>
       ) : chartData.length === 0 ? (
-        <div className={styles.empty}>No price data available for this period</div>
+        <div className={styles.empty}>{t('chart.noData')}</div>
       ) : (
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>

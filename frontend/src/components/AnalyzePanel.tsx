@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { analyzeAssetStream } from '../api/client';
 import { loadSettings } from './SettingsDialog';
+import { useLocale } from '../i18n/LocaleContext';
 import styles from './AnalyzePanel.module.css';
 
 interface Props {
@@ -16,11 +17,11 @@ interface Step {
   detail?: string;
 }
 
-function formatStepMessage(step: Step): string {
+function formatStepMessage(step: Step, t: (key: string, vars?: Record<string, string>) => string): string {
   switch (step.step_type) {
-    case 'planning': return 'Planning analysis...';
-    case 'evaluating': return 'Evaluating results...';
-    case 'synthesizing': return 'Writing analysis report...';
+    case 'planning': return t('analyze.planning');
+    case 'evaluating': return t('analyze.evaluating');
+    case 'synthesizing': return t('analyze.synthesizing');
     case 'tool_call': return step.message;
     default: return step.message;
   }
@@ -33,6 +34,7 @@ function StepIcon({ status }: { status: string }) {
 }
 
 export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
+  const { t, locale } = useLocale();
   const [steps, setSteps] = useState<Step[]>([]);
   const [report, setReport] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -55,7 +57,7 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
     abortRef.current = controller;
 
     try {
-      const body = await analyzeAssetStream(symbol, settings, controller.signal);
+      const body = await analyzeAssetStream(symbol, { ...settings, language: locale }, controller.signal);
       const reader = body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -83,7 +85,7 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Analysis failed');
+      setError(err instanceof Error ? err.message : t('analyze.failed'));
     } finally {
       setLoading(false);
       abortRef.current = null;
@@ -116,7 +118,7 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
         const tool = data.tool as string;
         setSteps((prev) => [
           ...prev,
-          { step_type: 'tool_call', message: `Fetching data: ${tool}`, status: 'active' },
+          { step_type: 'tool_call', message: t('analyze.fetchingData', { tool }), status: 'active' },
         ]);
         break;
       }
@@ -159,10 +161,10 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
           disabled={loading}
           className={styles.btnAnalyze}
         >
-          {loading ? 'Analyzing...' : 'Analyze with AI'}
+          {loading ? t('analyze.analyzing') : t('analyze.button')}
         </button>
         <button onClick={onOpenSettings} className={styles.btnSettings}>
-          LLM Settings
+          {t('analyze.settings')}
         </button>
       </div>
 
@@ -181,7 +183,7 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
             >
               <StepIcon status={step.status} />
               <div className={styles.stepText}>
-                <span>{formatStepMessage(step)}</span>
+                <span>{formatStepMessage(step, t)}</span>
                 {step.detail && <span className={styles.stepDetail}>{step.detail}</span>}
               </div>
             </div>

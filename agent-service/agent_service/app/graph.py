@@ -15,9 +15,10 @@ from agent_service.app.tools.finnhub_news import fetch_finnhub_news
 from agent_service.app.prompts import (
     PLAN_PROMPT,
     OBSERVE_PROMPT,
-    SYNTHESIZE_PROMPT,
     TOOL_REGISTRY,
     compress_tool_results,
+    apply_language_instruction,
+    build_synthesize_prompt,
     _now,
 )
 from agent_service.app.analytics.metrics import (
@@ -129,12 +130,16 @@ def plan_node(state: AgentState) -> dict:
         "message": f"Planning analysis for {state['symbol']}...",
     })
 
+    language = state.get("language", "en")
     llm = _build_llm(state)
 
-    prompt = PLAN_PROMPT.format(
-        symbol=state["symbol"],
-        tool_descriptions=TOOL_REGISTRY,
-        current_date=_now(),
+    prompt = apply_language_instruction(
+        PLAN_PROMPT.format(
+            symbol=state["symbol"],
+            tool_descriptions=TOOL_REGISTRY,
+            current_date=_now(),
+        ),
+        language,
     )
 
     messages = state.get("messages", [])
@@ -261,14 +266,18 @@ def observe_node(state: AgentState) -> dict:
         "message": "Evaluating collected data...",
     })
 
+    language = state.get("language", "en")
     llm = _build_llm(state)
 
     compressed = compress_tool_results(state["tool_results"])
 
-    prompt = OBSERVE_PROMPT.format(
-        symbol=state["symbol"],
-        tool_results_summary=compressed,
-        current_date=_now(),
+    prompt = apply_language_instruction(
+        OBSERVE_PROMPT.format(
+            symbol=state["symbol"],
+            tool_results_summary=compressed,
+            current_date=_now(),
+        ),
+        language,
     )
 
     messages = state.get("messages", [])
@@ -323,15 +332,17 @@ def synthesize_node(state: AgentState) -> dict:
             price_history_str = r.get("data", {}).get("full_result", "")
 
     symbol = state["symbol"]
+    language = state.get("language", "en")
     cache = get_cache()
-    cached = cache.get(symbol)
+    cache_key = f"{symbol}:{language}"
+    cached = cache.get(cache_key)
 
     if cached and cached.get("asset_data") == asset_data_str and cached.get("price_history") == price_history_str:
         dashboard = cached["dashboard"]
     else:
-        analytics = compute_enriched_analytics(symbol, asset_data_str, price_history_str)
-        dashboard = format_analytics_dashboard(analytics, symbol)
-        cache.set(symbol, {
+        analytics = compute_enriched_analytics(symbol, asset_data_str, price_history_str, language)
+        dashboard = format_analytics_dashboard(analytics, symbol, language)
+        cache.set(cache_key, {
             "asset_data": asset_data_str,
             "price_history": price_history_str,
             "dashboard": dashboard,
@@ -346,10 +357,11 @@ def synthesize_node(state: AgentState) -> dict:
     # Inject analytics dashboard between raw data and instructions
     enriched_data = tool_results_full + "\n\n" + dashboard
 
-    prompt = SYNTHESIZE_PROMPT.format(
+    prompt = build_synthesize_prompt(
         symbol=symbol,
-        tool_results_full=enriched_data,
+        enriched_data=enriched_data,
         current_date=_now(),
+        language=language,
     )
 
     steps[-1]["status"] = "done"

@@ -7,11 +7,13 @@ import NewsList from '../components/NewsList';
 import SettingsDialog from '../components/SettingsDialog';
 import AnalyzePanel from '../components/AnalyzePanel';
 import Skeleton from '../components/Skeleton';
+import { useLocale } from '../i18n/LocaleContext';
 import type { AssetDetail, AnalysisRequest } from '../api/types';
 import styles from './AssetPage.module.css';
 
 export default function AssetPage() {
   const { symbol } = useParams<{ symbol: string }>();
+  const { t } = useLocale();
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +44,9 @@ export default function AssetPage() {
   if (error) {
     return (
       <div className={styles.page}>
-        <Link to="/" className={styles.backLink}>&larr; Back to search</Link>
+        <Link to="/" className={styles.backLink}>{t('asset.back')}</Link>
         <div style={{ padding: 24, background: 'var(--red-subtle)', color: 'var(--red)', borderRadius: 'var(--radius-md)', fontSize: 14 }}>
-          Error: {error}
+          {t('asset.error', { message: error })}
         </div>
       </div>
     );
@@ -54,7 +56,7 @@ export default function AssetPage() {
 
   return (
     <div className={styles.page}>
-      <Link to="/" className={styles.backLink}>&larr; Back to search</Link>
+      <Link to="/" className={styles.backLink}>{t('asset.back')}</Link>
       <AssetDetailComponent asset={asset} />
       <PriceChart symbol={asset.symbol} />
       <NewsList news={asset.news} />
