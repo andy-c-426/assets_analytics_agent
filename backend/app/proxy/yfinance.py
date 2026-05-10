@@ -1,4 +1,6 @@
 import yfinance as yf
+import requests
+from datetime import datetime, timedelta, timezone
 from backend.app.models.schemas import (
     AssetSearchResult,
     AssetDetail,
@@ -59,7 +61,50 @@ def search(query: str) -> list[AssetSearchResult]:
     return results
 
 
-def fetch_asset(symbol: str) -> AssetDetail:
+def _fetch_finnhub_news(symbol: str, api_key: str) -> list[NewsArticle]:
+    """Fetch news from Finnhub API. Returns empty list on any failure."""
+    try:
+        today = datetime.now(timezone.utc)
+        week_ago = today - timedelta(days=7)
+        resp = requests.get(
+            "https://finnhub.io/api/v1/company-news",
+            params={
+                "symbol": symbol.strip().upper(),
+                "from": week_ago.strftime("%Y-%m-%d"),
+                "to": today.strftime("%Y-%m-%d"),
+                "token": api_key,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        articles = resp.json()
+        if not isinstance(articles, list):
+            return []
+
+        results = []
+        for a in articles[:5]:
+            published = a.get("datetime")
+            published_str = ""
+            if published:
+                try:
+                    from dateutil.parser import parse as parse_date
+                    published_str = str(int(parse_date(str(published)).timestamp()))
+                except Exception:
+                    published_str = str(published)
+
+            results.append(NewsArticle(
+                title=a.get("headline", ""),
+                publisher=a.get("source"),
+                link=a.get("url"),
+                published_at=published_str or None,
+                summary=a.get("summary", ""),
+            ))
+        return results
+    except Exception:
+        return []
+
+
+def fetch_asset(symbol: str, finnhub_key: str | None = None) -> AssetDetail:
     ticker = yf.Ticker(symbol.strip())
     info = ticker.get_info()
 
@@ -94,16 +139,20 @@ def fetch_asset(symbol: str) -> AssetDetail:
         fifty_two_week_low=info.get("fiftyTwoWeekLow"),
     )
 
-    news = []
-    raw_news = info.get("news", []) or []
-    for item in raw_news[:10]:
-        news.append(NewsArticle(
-            title=item.get("title", ""),
-            publisher=item.get("publisher"),
-            link=item.get("link"),
-            published_at=str(item.get("providerPublishTime", "")) if item.get("providerPublishTime") else None,
-            summary=item.get("summary"),
-        ))
+    news: list[NewsArticle] = []
+    if finnhub_key:
+        news = _fetch_finnhub_news(symbol, finnhub_key)
+
+    if not news:
+        raw_news = info.get("news", []) or []
+        for item in raw_news[:10]:
+            news.append(NewsArticle(
+                title=item.get("title", ""),
+                publisher=item.get("publisher"),
+                link=item.get("link"),
+                published_at=str(item.get("providerPublishTime", "")) if item.get("providerPublishTime") else None,
+                summary=item.get("summary"),
+            ))
 
     return AssetDetail(
         symbol=symbol.strip(),

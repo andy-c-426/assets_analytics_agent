@@ -4,7 +4,7 @@ import { getAssetDetail } from '../api/client';
 import AssetDetailComponent from '../components/AssetDetail';
 import PriceChart from '../components/PriceChart';
 import NewsList from '../components/NewsList';
-import SettingsDialog from '../components/SettingsDialog';
+import SettingsDialog, { loadSettings } from '../components/SettingsDialog';
 import AnalyzePanel from '../components/AnalyzePanel';
 import Skeleton from '../components/Skeleton';
 import { useLocale } from '../i18n/LocaleContext';
@@ -24,7 +24,8 @@ export default function AssetPage() {
     if (!symbol) return;
     setLoading(true);
     setError(null);
-    getAssetDetail(symbol)
+    const settings = loadSettings();
+    getAssetDetail(symbol, settings?.finnhub_api_key)
       .then(setAsset)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -59,7 +60,7 @@ export default function AssetPage() {
       <Link to="/" className={styles.backLink}>{t('asset.back')}</Link>
       <AssetDetailComponent asset={asset} />
       <PriceChart symbol={asset.symbol} />
-      <NewsList news={asset.news} />
+      <NewsList news={asset.news.slice(0, 3)} />
       <AnalyzePanel symbol={asset.symbol} onOpenSettings={() => setSettingsOpen(true)} />
       <SettingsDialog
         open={settingsOpen}

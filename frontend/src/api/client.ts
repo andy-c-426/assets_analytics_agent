@@ -28,8 +28,11 @@ export function searchAssets(q: string): Promise<AssetSearchResult[]> {
   return get<AssetSearchResult[]>(`/search?q=${encodeURIComponent(q)}`);
 }
 
-export function getAssetDetail(symbol: string): Promise<AssetDetail> {
-  return get<AssetDetail>(`/assets/${encodeURIComponent(symbol)}`);
+export function getAssetDetail(symbol: string, finnhubKey?: string): Promise<AssetDetail> {
+  const params = new URLSearchParams();
+  if (finnhubKey) params.set('finnhub_key', finnhubKey);
+  const qs = params.toString();
+  return get<AssetDetail>(`/assets/${encodeURIComponent(symbol)}${qs ? `?${qs}` : ''}`);
 }
 
 export function getPriceHistory(symbol: string, period: string): Promise<OHLCV[]> {

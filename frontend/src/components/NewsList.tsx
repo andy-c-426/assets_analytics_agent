@@ -18,10 +18,13 @@ export default function NewsList({ news }: { news: NewsArticle[] }) {
             rel="noopener noreferrer"
             className={styles.article}
           >
-            <div className={styles.articleTitle}>{article.title}</div>
-            <div className={styles.articleMeta}>
-              {article.publisher && <span>{article.publisher}</span>}
-              {article.published_at && <span>{formatDate(article.published_at)}</span>}
+            <span className={styles.articleIndex}>{i + 1}</span>
+            <div className={styles.articleBody}>
+              <div className={styles.articleTitle}>{article.title}</div>
+              <div className={styles.articleMeta}>
+                {article.publisher && <span>{article.publisher}</span>}
+                {article.published_at && <span>{formatDate(article.published_at)}</span>}
+              </div>
             </div>
           </a>
         ))}
