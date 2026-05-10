@@ -8,19 +8,32 @@ A web application for searching and analyzing financial assets (stocks, ETFs) ac
 
 ## Architecture
 
-- **Backend:** Python FastAPI — stateless API server, fetches data from yfinance, proxies LLM calls
-- **Frontend:** React + Vite TypeScript SPA — search, asset detail, analysis panel, settings
-- **Data:** yfinance for multi-market price data, fundamentals, news, and search autocomplete
+- **Backend:** Python FastAPI — stateless API proxy, forwards analyze requests to agent service
+- **Agent Service:** Python FastAPI + LangGraph — multi-step reasoning agent (plan → execute → observe → synthesize) with tool-calling, streaming SSE, and analytics computation
+- **Frontend:** React + Vite TypeScript SPA — search, asset detail, analysis panel with live streaming, settings
+- **Data:** yfinance for multi-market price data, fundamentals, and search autocomplete; Futu OpenD for real-time market snapshots; DuckDuckGo / Finnhub for news
 - **LLM:** User-configurable Claude / GPT / DeepSeek with user-provided API keys per request
 
 ## Project Structure
 
 ```
-backend/                    # Python FastAPI
+backend/                    # Python FastAPI (proxy layer)
   app/main.py               # entry point
   app/models/               # pydantic schemas
   app/activities/           # one file per endpoint (search, asset_detail, price_history, analyze)
   app/proxy/                # external adapters (yfinance.py, llm.py)
+agent-service/              # Python FastAPI (LangGraph agent)
+  agent_service/app/
+    main.py                 # entry point (port 8001)
+    agent_router.py         # SSE streaming endpoint
+    graph.py                # LangGraph StateGraph (plan→execute→observe→synthesize)
+    prompts.py              # LLM system prompts + tool registry
+    events.py               # SSE event formatters
+    state.py                # AgentState TypedDict
+    cache.py                # TTL in-memory cache for analytics
+    analytics/              # Bloomberg-style derived metrics
+    tools/                  # LangChain tools (yfinance, Futu, Finnhub, news, technicals)
+    llm/                    # LLM client factory (Claude/GPT/DeepSeek)
 frontend/                   # React + Vite
   src/components/           # SearchBar, AssetDetail, PriceChart, NewsList, AnalyzePanel, SettingsDialog
   src/pages/                # SearchPage, AssetPage
@@ -28,7 +41,7 @@ frontend/                   # React + Vite
 tests/
 ```
 
-**Conventions:** `activities/` = one file per API endpoint. `proxy/` = all external dependency adapters. No local search index — yfinance provides autocomplete. No server-side API key storage.
+**Conventions:** `activities/` = one file per API endpoint. `proxy/` = all external dependency adapters. `tools/` = one file per LangChain tool. No local search index — yfinance provides autocomplete. No server-side API key storage.
 
 ## API Endpoints
 
@@ -37,7 +50,7 @@ tests/
 | GET | `/api/search?q=` | Autocomplete search across all markets |
 | GET | `/api/assets/{symbol}` | Asset detail: profile, price, metrics, news |
 | GET | `/api/assets/{symbol}/price-history?period=` | OHLCV series |
-| POST | `/api/analyze/{symbol}` | LLM analysis (body: provider, model, api_key, base_url) |
+| POST | `/api/analyze/{symbol}` | LLM agent analysis with SSE streaming (body: provider, model, api_key, base_url, finnhub_api_key) |
 
 ## Docs
 

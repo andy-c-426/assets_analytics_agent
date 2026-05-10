@@ -7,3 +7,4 @@ Each file in this directory records a completed feature or phase. Files are name
 | Phase | File | Status |
 |-------|------|--------|
 | Phase 1 | [phase-1-core-flow.md](phase-1-core-flow.md) | completed |
+| Phase 2 | [phase-2-agent-service.md](phase-2-agent-service.md) | completed |
