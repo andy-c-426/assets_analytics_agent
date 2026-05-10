@@ -34,5 +34,9 @@ def error_event(message: str, retryable: bool = False) -> str:
     return format_sse("error", {"message": message, "retryable": retryable})
 
 
+def plan_reasoning(text: str) -> str:
+    return format_sse("plan_reasoning", {"text": text})
+
+
 def done() -> str:
     return format_sse("done", {})

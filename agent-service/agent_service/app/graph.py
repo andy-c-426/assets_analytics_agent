@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
 from langgraph.graph import StateGraph, END
@@ -8,18 +9,31 @@ from agent_service.app.state import AgentState, ToolCallPlan, ToolResult, Reason
 from agent_service.app.llm.client_factory import create_chat_model
 from agent_service.app.tools.yfinance_tools import fetch_asset_data, fetch_price_history
 from agent_service.app.tools.technicals import calculate_technicals
+from agent_service.app.tools.news_search import search_latest_news
+from agent_service.app.tools.futu_data import fetch_futu_data
+from agent_service.app.tools.finnhub_news import fetch_finnhub_news
 from agent_service.app.prompts import (
     PLAN_PROMPT,
     OBSERVE_PROMPT,
     SYNTHESIZE_PROMPT,
     TOOL_REGISTRY,
+    compress_tool_results,
+    _now,
 )
+from agent_service.app.analytics.metrics import (
+    compute_enriched_analytics,
+    format_analytics_dashboard,
+)
+from agent_service.app.cache import get_cache
 
 
 TOOLS_BY_NAME = {
     "fetch_asset_data": fetch_asset_data,
     "fetch_price_history": fetch_price_history,
     "calculate_technicals": calculate_technicals,
+    "search_latest_news": search_latest_news,
+    "fetch_futu_data": fetch_futu_data,
+    "fetch_finnhub_news": fetch_finnhub_news,
 }
 
 
@@ -58,6 +72,55 @@ def _build_llm(state: AgentState):
     )
 
 
+def _parse_plan_response(content: str, symbol: str) -> tuple[str, list[ToolCallPlan]]:
+    """Parse LLM response into reasoning text and plan list."""
+    reasoning = ""
+    plan: list[ToolCallPlan] = []
+
+    content = content.strip()
+
+    # Try newline-separated format: reasoning line then JSON line
+    lines = content.split("\n")
+    json_str = ""
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            json_str = stripped
+        elif stripped.startswith("{"):
+            json_str = stripped
+        elif not json_str and stripped:
+            # Lines before JSON are reasoning
+            if not reasoning:
+                reasoning = stripped
+            else:
+                reasoning += " " + stripped
+
+    # Fallback: treat whole content as JSON
+    if not json_str:
+        json_str = content
+        if json_str.startswith("```"):
+            json_str = json_str.split("\n", 1)[-1] if "\n" in json_str else ""
+        if json_str.endswith("```"):
+            json_str = json_str[:-3].strip()
+
+    try:
+        parsed = json.loads(json_str)
+        if isinstance(parsed, list):
+            plan = parsed
+        elif isinstance(parsed, dict):
+            plan = [parsed]
+    except json.JSONDecodeError:
+        plan = [{"tool": "fetch_asset_data", "args": {"symbol": symbol}}]
+        if not reasoning:
+            reasoning = "Gathering basic asset data"
+
+    if not reasoning:
+        reasoning = f"Planned {len(plan)} tool call(s)"
+
+    return reasoning, plan
+
+
 def plan_node(state: AgentState) -> dict:
     steps: list[ReasoningStep] = state.get("steps", [])
     steps.append({
@@ -71,6 +134,7 @@ def plan_node(state: AgentState) -> dict:
     prompt = PLAN_PROMPT.format(
         symbol=state["symbol"],
         tool_descriptions=TOOL_REGISTRY,
+        current_date=_now(),
     )
 
     messages = state.get("messages", [])
@@ -81,19 +145,10 @@ def plan_node(state: AgentState) -> dict:
     messages.append(response)
 
     content = response.content if hasattr(response, "content") else str(response)
-    try:
-        content = content.strip()
-        if content.startswith("```"):
-            # Remove opening fence (with optional language specifier like ```json)
-            content = content.split("\n", 1)[-1] if "\n" in content else ""
-        if content.endswith("```"):
-            content = content[:-3].strip()
-        plan: list[ToolCallPlan] = json.loads(content)
-    except json.JSONDecodeError:
-        plan = [{"tool": "fetch_asset_data", "args": {"symbol": state["symbol"]}}]
+    reasoning, plan = _parse_plan_response(content, state["symbol"])
 
     steps[-1]["status"] = "done"
-    steps[-1]["detail"] = f"Planned {len(plan)} tool call(s)"
+    steps[-1]["detail"] = reasoning
     for p in plan:
         steps.append({
             "step_type": "tool_call",
@@ -112,34 +167,47 @@ def plan_node(state: AgentState) -> dict:
 
 def execute_tools_node(state: AgentState) -> dict:
     plan: list[ToolCallPlan] = state["plan"]
-    tool_results: list[ToolResult] = []
     steps: list[ReasoningStep] = state.get("steps", [])
     messages = state.get("messages", [])
 
-    for i, call in enumerate(plan):
+    for step in steps:
+        if step["status"] == "pending" and step["step_type"] == "tool_call":
+            step["status"] = "active"
+            step["message"] = f"Calling {step.get('detail', 'tool')}..."
+
+    def _run_tool(call: ToolCallPlan) -> tuple[str, dict, str]:
         tool_name = call["tool"]
         args = call.get("args", {})
-
-        for step in steps:
-            if step["status"] == "pending" and step["step_type"] == "tool_call":
-                step["status"] = "active"
-                step["message"] = f"Calling {tool_name}..."
-                break
-
         tool_fn = TOOLS_BY_NAME.get(tool_name)
         if tool_fn is None:
-            result_text = f"Error: Unknown tool '{tool_name}'"
-        else:
-            try:
-                result_text = tool_fn.invoke(args)
-            except Exception as e:
-                result_text = f"Error executing {tool_name}: {str(e)}"
+            return tool_name, args, f"Error: Unknown tool '{tool_name}'"
+        try:
+            return tool_name, args, tool_fn.invoke(args)
+        except Exception as e:
+            return tool_name, args, f"Error executing {tool_name}: {str(e)}"
+
+    results_by_name: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=min(len(plan), 5)) as executor:
+        futures = {
+            executor.submit(_run_tool, call): call
+            for call in plan
+        }
+        for future in as_completed(futures):
+            tool_name, args, result_text = future.result()
+            results_by_name[tool_name] = result_text
+
+    tool_results: list[ToolResult] = []
+    for call in plan:
+        tool_name = call["tool"]
+        args = call.get("args", {})
+        result_text = results_by_name.get(tool_name, f"Error: No result for '{tool_name}'")
 
         for step in steps:
             if step["status"] == "active" and step["step_type"] == "tool_call":
-                step["status"] = "done"
-                step["message"] = f"Completed: {tool_name}"
-                break
+                if tool_name in step.get("detail", ""):
+                    step["status"] = "done"
+                    step["message"] = f"Completed: {tool_name}"
+                    break
 
         summary_lines = result_text.split("\n")
         summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
@@ -163,6 +231,28 @@ def execute_tools_node(state: AgentState) -> dict:
     }
 
 
+def _parse_observe_response(content: str) -> tuple[str, list[str], str]:
+    """Parse observe LLM response. Returns (decision, missing_fields, reasoning)."""
+    content = content.strip()
+    if content.startswith("```"):
+        content = content.split("\n", 1)[-1] if "\n" in content else ""
+    if content.endswith("```"):
+        content = content[:-3].strip()
+
+    try:
+        data = json.loads(content)
+        return (
+            data.get("decision", "enough"),
+            data.get("missing", []),
+            data.get("reasoning", ""),
+        )
+    except json.JSONDecodeError:
+        content_lower = content.lower()
+        if content_lower.startswith("more"):
+            return "more", [], content
+        return "enough", [], content
+
+
 def observe_node(state: AgentState) -> dict:
     steps: list[ReasoningStep] = state.get("steps", [])
     steps.append({
@@ -173,13 +263,12 @@ def observe_node(state: AgentState) -> dict:
 
     llm = _build_llm(state)
 
-    tool_summary = "\n".join(
-        f"- {r['tool']}: {r['summary']}" for r in state["tool_results"]
-    )
+    compressed = compress_tool_results(state["tool_results"])
 
     prompt = OBSERVE_PROMPT.format(
         symbol=state["symbol"],
-        tool_results_summary=tool_summary,
+        tool_results_summary=compressed,
+        current_date=_now(),
     )
 
     messages = state.get("messages", [])
@@ -188,17 +277,17 @@ def observe_node(state: AgentState) -> dict:
     messages.append(response)
 
     content = response.content if hasattr(response, "content") else str(response)
-    content_lower = content.strip().lower()
+    decision, missing, reasoning = _parse_observe_response(content)
 
     steps[-1]["status"] = "done"
 
-    if content_lower.startswith("more"):
-        steps[-1]["detail"] = "Need more data — re-planning"
+    if decision == "more":
+        steps[-1]["detail"] = f"Need more data — re-planning: {reasoning}"
         steps.append({
             "step_type": "planning",
             "status": "pending",
-            "message": "Re-planning with refined instructions...",
-            "detail": content.strip(),
+            "message": f"Re-planning{f' (need: {chr(44).join(missing)})' if missing else ''}...",
+            "detail": reasoning,
         })
         return {
             "messages": messages,
@@ -206,8 +295,7 @@ def observe_node(state: AgentState) -> dict:
             "next_action": "plan",
         }
 
-    # Default: enough data collected, proceed to synthesis
-    steps[-1]["detail"] = "Data sufficient — ready to synthesize"
+    steps[-1]["detail"] = f"Data sufficient — {reasoning}" if reasoning else "Data sufficient — ready to synthesize"
     return {
         "messages": messages,
         "steps": steps,
@@ -220,20 +308,57 @@ def synthesize_node(state: AgentState) -> dict:
     steps.append({
         "step_type": "synthesizing",
         "status": "active",
-        "message": "Writing analysis report...",
+        "message": "Computing analytics dashboard...",
     })
 
     llm = _build_llm(state)
 
+    # Compute Bloomberg-style analytics from raw tool results
+    asset_data_str = ""
+    price_history_str = ""
+    for r in state["tool_results"]:
+        if r["tool"] == "fetch_asset_data":
+            asset_data_str = r.get("data", {}).get("full_result", "")
+        elif r["tool"] == "fetch_price_history":
+            price_history_str = r.get("data", {}).get("full_result", "")
+
+    symbol = state["symbol"]
+    cache = get_cache()
+    cached = cache.get(symbol)
+
+    if cached and cached.get("asset_data") == asset_data_str and cached.get("price_history") == price_history_str:
+        dashboard = cached["dashboard"]
+    else:
+        analytics = compute_enriched_analytics(symbol, asset_data_str, price_history_str)
+        dashboard = format_analytics_dashboard(analytics, symbol)
+        cache.set(symbol, {
+            "asset_data": asset_data_str,
+            "price_history": price_history_str,
+            "dashboard": dashboard,
+        }, ttl=300)
+
+    # Use full results for final report (not compressed)
     tool_results_full = "\n\n".join(
         r.get("data", {}).get("full_result", r["summary"])
         for r in state["tool_results"]
     )
 
+    # Inject analytics dashboard between raw data and instructions
+    enriched_data = tool_results_full + "\n\n" + dashboard
+
     prompt = SYNTHESIZE_PROMPT.format(
-        symbol=state["symbol"],
-        tool_results_full=tool_results_full,
+        symbol=symbol,
+        tool_results_full=enriched_data,
+        current_date=_now(),
     )
+
+    steps[-1]["status"] = "done"
+    steps[-1]["detail"] = "Analytics computed — writing report"
+    steps.append({
+        "step_type": "synthesizing",
+        "status": "active",
+        "message": "Writing analysis report...",
+    })
 
     messages = state.get("messages", [])
     messages.append(SystemMessage(content=prompt))

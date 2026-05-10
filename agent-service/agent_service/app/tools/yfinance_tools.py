@@ -22,6 +22,8 @@ def fetch_asset_data(symbol: str) -> str:
         country = info.get("country", "N/A")
         market_cap = info.get("marketCap")
         description = info.get("longBusinessSummary", "No description available")
+        # Compress to first two sentences (~200 chars) to reduce LLM token costs
+        compressed_desc = _compress_description(description)
 
         current_price = info.get("currentPrice") or info.get("regularMarketPrice")
         currency = info.get("currency", "USD")
@@ -61,7 +63,7 @@ def fetch_asset_data(symbol: str) -> str:
             f"  52W High: {high_52w:.2f}" if high_52w is not None else "  52W High: N/A",
             f"  52W Low: {low_52w:.2f}" if low_52w is not None else "  52W Low: N/A",
             "",
-            f"Description: {description[:500]}..." if len(description) > 500 else f"Description: {description}",
+            f"Description: {compressed_desc}",
             "",
             f"Recent News ({len(news_items)} articles):",
         ] + news_items)
@@ -119,3 +121,16 @@ def _fmt_big(n: float | None) -> str:
     if abs(n) >= 1e6:
         return f"${n / 1e6:.2f}M"
     return f"${n:,.0f}"
+
+
+def _compress_description(text: str) -> str:
+    """Keep first two sentences, cap at ~250 chars for LLM token efficiency."""
+    if not text or text == "No description available":
+        return text
+    sentences = text.replace("\n", " ").split(". ")
+    result = ". ".join(sentences[:2])
+    if not result.endswith("."):
+        result += "."
+    if len(result) > 250:
+        result = result[:247] + "..."
+    return result
