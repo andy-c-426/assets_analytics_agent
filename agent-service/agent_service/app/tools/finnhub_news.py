@@ -17,10 +17,11 @@ def _get_key() -> str | None:
 
 @tool
 def fetch_finnhub_news(symbol: str) -> str:
-    """Fetch latest financial news for a ticker from Finnhub (primary) with web search fallback.
+    """PRIMARY news tool — Fetch structured financial news for a ticker from Finnhub API.
 
-    Returns news articles with headlines, summaries, sources, and publish dates.
-    Automatically falls back to web search if no Finnhub API key is configured.
+    Always use this first for any stock/ETF news. Returns headlines, summaries,
+    sources, and publish dates. Automatically falls back to web search if the
+    API key is missing or the API returns no results or errors.
 
     Args:
         symbol: Ticker symbol (e.g. AAPL, TSLA, 00700.HK)

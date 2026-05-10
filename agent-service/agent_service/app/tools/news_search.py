@@ -3,13 +3,14 @@ from langchain_core.tools import tool
 
 @tool
 def search_latest_news(query: str, max_results: int = 5) -> str:
-    """Search the web for latest news and information about a topic or symbol.
-    Use this when you need current news, analyst opinions, or recent developments
-    that yfinance might not have.
+    """General web search for broad topics via DuckDuckGo. NOT for ticker-specific news — use fetch_finnhub_news instead.
+
+    Use this only when you need information that fetch_finnhub_news cannot cover,
+    such as macroeconomic news, sector/industry trends, or non-ticker queries.
 
     Args:
-        query: Search query (e.g. "AAPL stock news today", "Tesla earnings 2026")
-        max_results: Maximum number of news results to return (default 5)
+        query: Search query (e.g. "semiconductor industry outlook 2026", "Fed interest rate decision")
+        max_results: Maximum number of results to return (default 5)
     """
     try:
         from duckduckgo_search import DDGS

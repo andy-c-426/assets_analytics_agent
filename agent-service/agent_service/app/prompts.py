@@ -17,8 +17,7 @@ Available tools:
 First, think about what data you need for a thorough analysis. Consider:
 - Basic asset information and current metrics (fetch_futu_data for richer real-time data, fetch_asset_data as alternative)
 - Recent price history for technical analysis (use period relative to today's date)
-- Latest news for market sentiment — include the current year/month in search queries
-- If you need more current information, use search_latest_news
+- Latest news for market sentiment — prefer fetch_finnhub_news for structured financial news; use search_latest_news only as a fallback for broader web searches
 
 Then plan which tools to call. You must call at least one data tool (fetch_futu_data or fetch_asset_data).
 
@@ -120,8 +119,8 @@ TOOL_REGISTRY = """
 - fetch_futu_data(symbol): Fetch real-time stock/ETF data from Futu OpenD with yfinance fallback. Richer real-time data (market snapshot, basic info) when Futu is available
 - fetch_price_history(symbol, period): Fetch OHLCV price history. period is one of: 1mo, 6mo, 1y, 5y, max
 - calculate_technicals(symbol, prices): Calculate SMA, EMA, RSI, volatility from price data. prices is a list of close prices.
-- search_latest_news(query, max_results): Search the web for latest news via DuckDuckGo. query is the search term. max_results is results count (default 5).
-- fetch_finnhub_news(symbol): Fetch financial news for a ticker from Finnhub (headlines, summaries, sources, dates). Falls back to web search if no API key configured.
+- fetch_finnhub_news(symbol): PRIMARY news tool — Fetch structured financial news for a ticker from Finnhub API (headlines, summaries, sources, dates). Always prefer this for stock/ETF news. Falls back to web search automatically if needed.
+- search_latest_news(query, max_results): GENERAL web search via DuckDuckGo — Use only for broad topics that fetch_finnhub_news cannot cover (e.g. macroeconomic news, sector trends, non-ticker queries). Do NOT use for ticker-specific news.
 """
 
 
