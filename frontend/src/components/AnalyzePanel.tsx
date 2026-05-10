@@ -103,6 +103,15 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
         });
         break;
       }
+      case 'plan_reasoning': {
+        const text = data.text as string;
+        setSteps((prev) =>
+          prev.map((s) =>
+            s.step_type === 'planning' ? { ...s, detail: text } : s
+          )
+        );
+        break;
+      }
       case 'tool_called': {
         const tool = data.tool as string;
         setSteps((prev) => [
@@ -171,7 +180,10 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
               }
             >
               <StepIcon status={step.status} />
-              <span>{formatStepMessage(step)}</span>
+              <div className={styles.stepText}>
+                <span>{formatStepMessage(step)}</span>
+                {step.detail && <span className={styles.stepDetail}>{step.detail}</span>}
+              </div>
             </div>
           ))}
         </div>

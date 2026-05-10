@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import type { AssetDetail as AssetDetailType } from '../api/types';
 import styles from './AssetDetail.module.css';
+
+const DESC_PREVIEW_LENGTH = 200;
 
 function fmt(n?: number): string {
   if (n == null) return '—';
@@ -12,6 +15,8 @@ function fmt(n?: number): string {
 export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
   const { profile, price, metrics } = asset;
   const isPositive = (price.change ?? 0) >= 0;
+  const [descExpanded, setDescExpanded] = useState(false);
+  const isLongDesc = (profile.description?.length ?? 0) > DESC_PREVIEW_LENGTH;
 
   return (
     <div className={styles.card}>
@@ -36,7 +41,21 @@ export default function AssetDetail({ asset }: { asset: AssetDetailType }) {
       </div>
 
       {profile.description && (
-        <p className={styles.description}>{profile.description}</p>
+        <div className={styles.description}>
+          <p>
+            {isLongDesc && !descExpanded
+              ? profile.description.slice(0, DESC_PREVIEW_LENGTH) + '...'
+              : profile.description}
+          </p>
+          {isLongDesc && (
+            <button
+              className={styles.moreBtn}
+              onClick={() => setDescExpanded((v) => !v)}
+            >
+              {descExpanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </div>
       )}
 
       <div className={styles.metricsGrid}>

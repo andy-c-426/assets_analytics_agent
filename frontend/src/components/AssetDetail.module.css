@@ -64,6 +64,27 @@
   margin-bottom: var(--space-5);
 }
 
+.description p {
+  margin: 0;
+}
+
+.moreBtn {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.moreBtn:hover {
+  color: var(--text-primary);
+}
+
 .metricsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
