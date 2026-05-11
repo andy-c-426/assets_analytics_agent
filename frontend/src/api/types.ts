@@ -70,6 +70,7 @@ export interface AnalysisRequest {
   base_url?: string;
   finnhub_api_key?: string;
   language?: string;
+  prefetched_data?: Record<string, string>;
 }
 
 export interface AnalysisResponse {

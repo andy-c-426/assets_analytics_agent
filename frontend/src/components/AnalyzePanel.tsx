@@ -8,6 +8,7 @@ import styles from './AnalyzePanel.module.css';
 interface Props {
   symbol: string;
   onOpenSettings: () => void;
+  prefetchedData?: Record<string, string>;
 }
 
 interface Step {
@@ -33,7 +34,7 @@ function StepIcon({ status }: { status: string }) {
   return <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>○</span>;
 }
 
-export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
+export default function AnalyzePanel({ symbol, onOpenSettings, prefetchedData }: Props) {
   const { t, locale } = useLocale();
   const [steps, setSteps] = useState<Step[]>([]);
   const [report, setReport] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function AnalyzePanel({ symbol, onOpenSettings }: Props) {
     abortRef.current = controller;
 
     try {
-      const body = await analyzeAssetStream(symbol, { ...settings, language: locale }, controller.signal);
+      const body = await analyzeAssetStream(symbol, { ...settings, language: locale, prefetched_data: prefetchedData }, controller.signal);
       const reader = body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';

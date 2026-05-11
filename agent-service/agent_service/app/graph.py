@@ -7,11 +7,11 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from agent_service.app.state import AgentState, ToolCallPlan, ToolResult, ReasoningStep
 from agent_service.app.llm.client_factory import create_chat_model
-from agent_service.app.tools.yfinance_tools import fetch_asset_data, fetch_price_history
+from agent_service.app.tools.yfinance_tools import fetch_price_history
 from agent_service.app.tools.technicals import calculate_technicals
-from agent_service.app.tools.news_search import search_latest_news
-from agent_service.app.tools.futu_data import fetch_futu_data
-from agent_service.app.tools.finnhub_news import fetch_finnhub_news
+from agent_service.app.tools.market_data import fetch_market_data
+from agent_service.app.tools.macro_research import fetch_macro_research
+from agent_service.app.tools.sentiment_news import fetch_sentiment_news
 from agent_service.app.prompts import (
     PLAN_PROMPT,
     OBSERVE_PROMPT,
@@ -29,24 +29,32 @@ from agent_service.app.cache import get_cache
 
 
 TOOLS_BY_NAME = {
-    "fetch_asset_data": fetch_asset_data,
+    "fetch_market_data": fetch_market_data,
+    "fetch_macro_research": fetch_macro_research,
+    "fetch_sentiment_news": fetch_sentiment_news,
     "fetch_price_history": fetch_price_history,
     "calculate_technicals": calculate_technicals,
-    "search_latest_news": search_latest_news,
-    "fetch_futu_data": fetch_futu_data,
-    "fetch_finnhub_news": fetch_finnhub_news,
 }
 
 
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
+    graph.add_node("route", route_node)
     graph.add_node("plan", plan_node)
     graph.add_node("execute_tools", execute_tools_node)
     graph.add_node("observe", observe_node)
     graph.add_node("synthesize", synthesize_node)
 
-    graph.set_entry_point("plan")
+    graph.set_entry_point("route")
+    graph.add_conditional_edges(
+        "route",
+        decide_route,
+        {
+            "plan": "plan",
+            "synthesize": "synthesize",
+        },
+    )
     graph.add_edge("plan", "execute_tools")
     graph.add_edge("execute_tools", "observe")
     graph.add_conditional_edges(
@@ -61,6 +69,18 @@ def build_graph() -> StateGraph:
     graph.add_edge("synthesize", END)
 
     return graph
+
+
+def route_node(state: AgentState) -> dict:
+    """Routing node — skip to synthesize if pre-fetched data is available."""
+    return {}
+
+
+def decide_route(state: AgentState) -> Literal["plan", "synthesize"]:
+    """Route to synthesize if pre-fetched data is available, otherwise plan."""
+    if state.get("tool_results") and state.get("next_action") == "synthesize":
+        return "synthesize"
+    return "plan"
 
 
 def _build_llm(state: AgentState):
@@ -326,7 +346,7 @@ def synthesize_node(state: AgentState) -> dict:
     asset_data_str = ""
     price_history_str = ""
     for r in state["tool_results"]:
-        if r["tool"] == "fetch_asset_data":
+        if r["tool"] in ("fetch_market_data", "fetch_asset_data"):
             asset_data_str = r.get("data", {}).get("full_result", "")
         elif r["tool"] == "fetch_price_history":
             price_history_str = r.get("data", {}).get("full_result", "")

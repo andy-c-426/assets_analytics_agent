@@ -57,6 +57,11 @@ const translations: Record<string, Record<Lang, string>> = {
   'asset.back': { en: '← Back to search', 'zh-CN': '← 返回搜索' },
   'asset.error': { en: 'Error: {message}', 'zh-CN': '错误: {message}' },
 
+  'widget.marketData': { en: 'Market Data', 'zh-CN': '市场基础数据' },
+  'widget.macroResearch': { en: 'Macro & Research', 'zh-CN': '宏观与研报' },
+  'widget.sentimentNews': { en: 'Sentiment & News', 'zh-CN': '情绪与舆情' },
+  'widget.unavailable': { en: 'Data not available', 'zh-CN': '数据不可用' },
+
   'lang.en': { en: 'English', 'zh-CN': 'English' },
   'lang.zh-CN': { en: '简体中文', 'zh-CN': '简体中文' },
 };

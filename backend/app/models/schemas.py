@@ -75,6 +75,7 @@ class AnalysisRequest(BaseModel):
     base_url: Optional[str] = None
     finnhub_api_key: Optional[str] = None
     language: Optional[str] = None
+    prefetched_data: Optional[dict[str, str]] = None
 
 
 class AnalysisResponse(BaseModel):

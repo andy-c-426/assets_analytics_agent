@@ -25,6 +25,7 @@ async def analyze_endpoint(symbol: str, body: AnalysisRequest):
                     "base_url": body.base_url,
                     "finnhub_api_key": body.finnhub_api_key,
                     "language": body.language,
+                    "prefetched_data": body.prefetched_data,
                 },
             ) as response:
                 async for chunk in response.aiter_bytes():

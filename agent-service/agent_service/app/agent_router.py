@@ -8,7 +8,10 @@ from pydantic import BaseModel, Field
 from agent_service.app.state import AgentState
 from agent_service.app.graph import build_graph
 from agent_service.app import events
-from agent_service.app.tools.finnhub_news import set_api_key as set_finnhub_key
+from agent_service.app.tools.sentiment_news import set_api_key as set_finnhub_key
+from agent_service.app.tools.market_data import fetch_market_data
+from agent_service.app.tools.macro_research import fetch_macro_research
+from agent_service.app.tools.sentiment_news import fetch_sentiment_news
 
 
 router = APIRouter()
@@ -21,6 +24,30 @@ class AnalyzeRequest(BaseModel):
     base_url: str | None = None
     finnhub_api_key: str | None = None
     language: str | None = None
+    prefetched_data: dict[str, str] | None = None
+
+
+@router.get("/market-data/{symbol}")
+async def market_data(symbol: str):
+    """Fetch structured market data for a symbol."""
+    result = fetch_market_data.invoke({"symbol": symbol})
+    return {"symbol": symbol, "data": result}
+
+
+@router.get("/macro-research/{symbol}")
+async def macro_research(symbol: str):
+    """Fetch macro research and sector analysis for a symbol."""
+    result = fetch_macro_research.invoke({"symbol": symbol})
+    return {"symbol": symbol, "data": result}
+
+
+@router.get("/sentiment-news/{symbol}")
+async def sentiment_news(symbol: str, finnhub_api_key: str | None = None):
+    """Fetch sentiment news for a symbol."""
+    if finnhub_api_key:
+        set_finnhub_key(finnhub_api_key)
+    result = fetch_sentiment_news.invoke({"symbol": symbol})
+    return {"symbol": symbol, "data": result}
 
 
 @router.post("/analyze/{symbol}")
@@ -43,6 +70,26 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
         graph = build_graph()
         compiled = graph.compile()
 
+        # Build pre-populated tool_results from pre-fetched data
+        prefetched = body.prefetched_data or {}
+        pre_tool_results = []
+        if prefetched:
+            for tool_name, data in prefetched.items():
+                summary_lines = data.split("\n")
+                summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
+                if len(summary) > 150:
+                    summary = summary[:147] + "..."
+                pre_tool_results.append({
+                    "tool": tool_name,
+                    "args": {"symbol": symbol},
+                    "summary": summary,
+                    "data": {"full_result": data},
+                })
+            yield events.step_started("planning", f"Using pre-fetched data for {symbol}...")
+            yield events.step_started("synthesizing", "Pre-fetched data ready — writing report...")
+        else:
+            yield events.step_started("planning", f"Starting analysis for {symbol}...")
+
         initial_state: AgentState = {
             "symbol": symbol,
             "language": body.language or "en",
@@ -53,15 +100,13 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                 "base_url": body.base_url,
             },
             "plan": [],
-            "tool_results": [],
+            "tool_results": pre_tool_results,
             "messages": [],
             "steps": [],
             "final_report": None,
-            "next_action": "plan",
+            "next_action": "synthesize" if pre_tool_results else "plan",
             "error": None,
         }
-
-        yield events.step_started("planning", f"Starting analysis for {symbol}...")
 
         emitted_results = 0
 

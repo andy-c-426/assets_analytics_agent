@@ -1,15 +1,27 @@
 [data-theme='dark'] {
-  --bg-primary: #0f1115;
-  --bg-surface: #1a1d24;
-  --border-default: #272a33;
-  --border-subtle: #1f2229;
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #8b949e;
-  --accent-subtle: rgba(109, 93, 252, 0.12);
-  --red-subtle: rgba(239, 68, 68, 0.1);
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  /* Bloomberg-style dark palette */
+  --bg-primary: #0c0c14;
+  --bg-surface: #12121c;
+  --bg-card: #12121c;
+  --bg-subtle: #181823;
+  --border: #2a2a38;
+  --border-default: #2a2a38;
+  --border-subtle: #1e1e2c;
+  --text-primary: #e8e8ec;
+  --text-secondary: #b0b0b8;
+  --text-muted: #707078;
+  --text: #e8e8ec;
+  --accent: #f5a623;
+  --accent-hover: #ffb844;
+  --accent-subtle: rgba(245, 166, 35, 0.1);
+  --green: #00e676;
+  --red: #ff5252;
+  --red-subtle: rgba(255, 82, 82, 0.1);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.6);
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
 }

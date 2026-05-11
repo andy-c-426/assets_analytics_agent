@@ -1,67 +1,147 @@
+/* ── Bloomberg Terminal: Asset Detail Card ─────────────────── */
+
 .card {
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  margin-bottom: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+  margin-bottom: 2px;
 }
+
+/* ── Header ───────────────────────────────────────────────── */
 
 .header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  padding: 14px 18px 6px;
+  background: var(--bg-surface);
 }
 
-.title {
-  font-size: 24px;
+.name {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.3px;
-  color: var(--text-primary);
+  color: var(--accent);
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
 
-.subtitle {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin-top: 2px;
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 6px;
   font-family: var(--font-mono);
 }
 
-.price {
-  text-align: right;
+.symbol {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+.sectorBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--bg-surface);
+  background: var(--accent);
+  padding: 2px 8px;
+}
+
+.country {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.asOf {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* ── Price Card ───────────────────────────────────────────── */
+
+.priceCard {
+  margin: 8px 14px 0;
+  padding: 12px 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
 .priceValue {
-  font-size: 28px;
-  font-weight: 700;
   font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
   color: var(--text-primary);
+  letter-spacing: -0.3px;
+  line-height: 1;
 }
 
 .priceCurrency {
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-muted);
 }
 
-.changeUp {
-  color: var(--green);
+.priceChange {
+  font-family: var(--font-mono);
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
-.changeDown {
-  color: var(--red);
-  font-size: 14px;
-  font-weight: 500;
+/* ── OHLC Grid ────────────────────────────────────────────── */
+
+.ohlcGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+  padding: 10px 10px 2px;
+  border-bottom: 1px solid var(--border-subtle);
 }
+
+.ohlcCell {
+  text-align: center;
+  padding: 6px 2px;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.ohlcCell:last-child {
+  border-right: none;
+}
+
+.ohlcLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 3px;
+}
+
+.ohlcValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Description ──────────────────────────────────────────── */
 
 .description {
+  padding: 14px 18px 0;
   color: var(--text-secondary);
-  line-height: 1.6;
-  font-size: 14px;
-  margin-bottom: var(--space-5);
+  line-height: 1.65;
+  font-size: 12.5px;
+  border-top: 1px solid var(--border-subtle);
 }
 
 .description p {
@@ -70,48 +150,112 @@
 
 .moreBtn {
   display: inline-block;
-  margin-top: 6px;
+  margin-top: 4px;
   padding: 0;
   background: none;
   border: none;
+  font-family: var(--font-mono);
   color: var(--accent);
-  font-size: 13px;
-  font-family: var(--font-sans);
+  font-size: 11px;
   cursor: pointer;
-  transition: color var(--transition-fast);
 }
 
 .moreBtn:hover {
   color: var(--text-primary);
 }
 
-.metricsGrid {
+/* ── Sections ─────────────────────────────────────────────── */
+
+.section {
+  padding: 10px 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.sectionTitle {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+}
+
+/* ── KV Grid ──────────────────────────────────────────────── */
+
+.kvGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1px 20px;
 }
 
-.metric {
-  background: var(--bg-primary);
-  padding: 10px 14px;
-  border-radius: var(--radius-sm);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+.kvRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 0;
 }
 
-.metric:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xs);
-}
-
-.metricLabel {
-  font-size: 12px;
+.kvLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
   color: var(--text-muted);
 }
 
-.metricValue {
-  font-size: 15px;
-  font-weight: 600;
-  margin-top: 2px;
+.kvValue {
   font-family: var(--font-mono);
-  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* ── 52-Week Range Bar ────────────────────────────────────── */
+
+.rangeBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.rangeLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rangeTrack {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  position: relative;
+}
+
+.rangeFill {
+  position: absolute;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.footerItem strong {
+  color: var(--text);
+  font-weight: 600;
 }

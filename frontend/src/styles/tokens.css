@@ -1,13 +1,17 @@
 /* Design tokens — consumed by all components */
 :root {
-  /* Colors — light */
+  /* Colors — light (unchanged, Bloomberg is dark-mode focused) */
   --bg-primary: #f8f9fb;
   --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-subtle: #f8f9fb;
+  --border: #e5e7eb;
   --border-default: #e5e7eb;
   --border-subtle: #f0f0f0;
   --text-primary: #111827;
   --text-secondary: #374151;
   --text-muted: #6b7280;
+  --text: #111827;
   --accent: #6d5dfc;
   --accent-hover: #5a4de0;
   --accent-subtle: rgba(109, 93, 252, 0.08);

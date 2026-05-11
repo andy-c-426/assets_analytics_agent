@@ -53,18 +53,19 @@ export default function PriceChart({ symbol }: { symbol: string }) {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
-            <XAxis dataKey="date" fontSize={11} tick={{ fill: 'var(--text-muted)' }} />
-            <YAxis fontSize={11} tick={{ fill: 'var(--text-muted)' }} domain={['auto', 'auto']} />
+            <XAxis dataKey="date" fontSize={10} tick={{ fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }} />
+            <YAxis fontSize={10} tick={{ fill: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }} domain={['auto', 'auto']} />
             <Tooltip
               contentStyle={{
                 background: 'var(--bg-surface)',
-                border: '1px solid var(--border-default)',
-                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--border)',
+                borderRadius: 0,
                 fontFamily: 'var(--font-mono)',
-                fontSize: 13,
+                fontSize: 11,
+                color: 'var(--text-primary)',
               }}
             />
-            <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="price" stroke="var(--accent)" strokeWidth={1.5} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       )}

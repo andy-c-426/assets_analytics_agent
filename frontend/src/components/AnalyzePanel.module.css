@@ -1,4 +1,7 @@
+/* ── Bloomberg Terminal: Analyze Panel ─────────────────────── */
+
 .panel {
+  margin-top: 10px;
   margin-bottom: var(--space-6);
 }
 
@@ -10,24 +13,26 @@
 }
 
 .btnAnalyze {
-  padding: 10px 24px;
+  padding: 10px 20px;
   background: var(--accent);
-  color: white;
+  color: var(--bg-surface);
   border: none;
-  border-radius: var(--radius-md);
-  font-size: 15px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
   font-weight: 600;
-  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
   cursor: pointer;
-  transition: box-shadow var(--transition-fast);
+  transition: background var(--transition-fast);
 }
 
 .btnAnalyze:hover:not(:disabled) {
-  box-shadow: 0 0 16px rgba(109, 93, 252, 0.35);
+  background: var(--accent-hover);
 }
 
 .btnAnalyze:disabled {
-  background: var(--border-default);
+  background: var(--border);
   color: var(--text-muted);
   cursor: not-allowed;
 }
@@ -35,10 +40,10 @@
 .btnSettings {
   padding: 10px 16px;
   background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-family: var(--font-sans);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
   cursor: pointer;
   color: var(--text-muted);
   transition: all var(--transition-fast);
@@ -52,39 +57,42 @@
 .error {
   padding: 12px;
   background: var(--red-subtle);
+  border: 1px solid var(--red);
   color: var(--red);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
   margin-bottom: var(--space-3);
 }
 
 .result {
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  border-radius: 0;
   padding: var(--space-5);
-}
-
-.resultMeta {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: var(--space-4);
 }
 
 .resultContent {
   line-height: 1.7;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-primary);
+  font-family: var(--font-mono);
 }
 
 .resultContent h2 {
-  font-size: 18px;
+  font-family: var(--font-mono);
+  font-size: 16px;
   margin: var(--space-6) 0 var(--space-2);
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .resultContent h3 {
-  font-size: 15px;
+  font-family: var(--font-mono);
+  font-size: 13px;
   margin: var(--space-4) 0 var(--space-1);
+  color: var(--text-primary);
 }
 
 .resultContent p {
@@ -102,22 +110,24 @@
 
 .resultContent strong {
   font-weight: 600;
+  color: var(--accent);
 }
 
 .stepList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   margin-bottom: var(--space-4);
 }
 
 .stepItem {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 0;
   transition: background var(--transition-fast);
 }
 
@@ -130,6 +140,7 @@
   composes: stepItem;
   color: var(--text-primary);
   background: var(--accent-subtle);
+  border-left: 2px solid var(--accent);
 }
 
 .stepPending {
@@ -146,7 +157,8 @@
 }
 
 .stepDetail {
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
   color: var(--text-muted);
   line-height: 1.4;
   word-break: break-word;

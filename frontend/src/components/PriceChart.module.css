@@ -1,50 +1,60 @@
+/* ── Bloomberg Terminal: Price Chart ───────────────────────── */
+
 .card {
   background: var(--bg-surface);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  margin-bottom: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  padding: 16px 18px;
+  margin-bottom: 2px;
 }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-4);
+  margin-bottom: 14px;
 }
 
 .sectionTitle {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .periods {
   display: flex;
-  gap: 4px;
+  gap: 0;
+  border: 1px solid var(--border);
 }
 
 .periodBtn {
   padding: 4px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border: none;
+  border-right: 1px solid var(--border);
   background: var(--bg-surface);
+  font-family: var(--font-mono);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 500;
-  font-family: var(--font-sans);
   transition: all var(--transition-fast);
 }
 
+.periodBtn:last-child {
+  border-right: none;
+}
+
 .periodBtn:hover {
-  border-color: var(--text-muted);
+  background: var(--bg-subtle);
   color: var(--text-primary);
 }
 
 .periodBtnActive {
   background: var(--accent);
-  color: white;
+  color: var(--bg-surface);
   border-color: var(--accent);
 }
 
@@ -53,10 +63,11 @@
 }
 
 .empty {
-  height: 300px;
+  height: 280px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-mono);
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 12px;
 }

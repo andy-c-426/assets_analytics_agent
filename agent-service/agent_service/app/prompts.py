@@ -14,12 +14,17 @@ Today is {current_date}.
 Available tools:
 {tool_descriptions}
 
-First, think about what data you need for a thorough analysis. Consider:
-- Basic asset information and current metrics (fetch_futu_data for richer real-time data, fetch_asset_data as alternative)
-- Recent price history for technical analysis (use period relative to today's date)
-- Latest news for market sentiment — prefer fetch_finnhub_news for structured financial news; use search_latest_news only as a fallback for broader web searches
+For a complete analysis, you MUST call ALL THREE core tools (plus additional tools as needed):
 
-Then plan which tools to call. You must call at least one data tool (fetch_futu_data or fetch_asset_data).
+1. fetch_market_data — structured data: price, metrics, fundamentals, market index
+2. fetch_macro_research — macro context: sector trends, policy, economic outlook
+3. fetch_sentiment_news — alternative data: news, sentiment, market mood
+
+Then supplement with:
+- fetch_price_history for technical analysis (use period relative to today's date)
+- calculate_technicals if you have price data
+
+Plan your tool calls. The three core tools are mandatory for every analysis.
 
 Reply with your reasoning on the first line, then the JSON plan on the second line:
 
@@ -36,13 +41,18 @@ You have executed tools and received results:
 
 {tool_results_summary}
 
-Do you have enough data to write a comprehensive analysis? If not, what specific data is missing?
-Consider whether the data is current enough relative to today's date.
+Do you have enough data to write a comprehensive analysis? You need ALL THREE data types:
+- 市场基础数据 (Structured): Asset metrics, price, fundamentals, market index — from fetch_market_data
+- 宏观与研报 (Macro): Sector trends, policy, economic outlook — from fetch_macro_research
+- 情绪与舆情 (Sentiment): News articles, categories, market mood — from fetch_sentiment_news
+
+If any of the three core data types is missing, mark decision "more" and specify which tool to call.
+Also consider whether you need price history (fetch_price_history) for technical analysis.
 
 Reply in JSON format exactly like this:
-{{"decision": "enough", "missing": [], "reasoning": "Data is sufficient for analysis"}}
+{{"decision": "enough", "missing": [], "reasoning": "All three data types collected"}}
 or
-{{"decision": "more", "missing": ["technicals"], "reasoning": "Need technical indicators for trend assessment"}}
+{{"decision": "more", "missing": ["macro_research"], "reasoning": "Missing macro and sector context"}}
 
 Only return the JSON object, nothing else."""
 
@@ -70,22 +80,24 @@ LANGUAGE_INSTRUCTIONS: dict[str, str] = {
 
 SYNTHESIZE_STRUCTURE: dict[str, str] = {
     "en": """Structure your analysis with:
-1. **Overview** — Brief summary of the company and current situation (mention the analysis date)
-2. **Key Metrics Analysis** — What the numbers mean
-3. **Technical Analysis** — Trend and momentum assessment (if data available)
-4. **Recent News Impact** — How recent news may affect the asset
-5. **Risks & Opportunities**
-6. **Outlook** — Short to medium term outlook
+1. **Market Context** — Broader market environment: how major indices are performing, current macro themes (interest rates, inflation, geopolitical factors), and sector-level trends. Connect this to how the overall market backdrop affects this specific asset.
+2. **Overview** — Brief summary of the company and current situation (mention the analysis date)
+3. **Key Metrics Analysis** — What the numbers mean, in the context of the broader market and sector
+4. **Technical Analysis** — Trend and momentum assessment (if data available), relative to market index performance
+5. **Recent News Impact** — How both ticker-specific news AND macro/sector news may affect the asset
+6. **Risks & Opportunities** — Include both company-specific and macro-driven risks
+7. **Outlook** — Short to medium term outlook factoring in market trends
 
 Be objective. Highlight both positives and negatives. Do not give specific buy/sell recommendations.
 Use markdown formatting for readability.""",
     "zh-CN": """请按以下结构撰写分析报告：
-1. **概述** — 公司及当前情况简要介绍（注明分析日期）
-2. **关键指标分析** — 解读各项数据的含义
-3. **技术分析** — 趋势与动能评估（如有数据）
-4. **近期新闻影响** — 近期新闻对资产的潜在影响
-5. **风险与机遇**
-6. **展望** — 中短期前景
+1. **市场环境** — 整体市场背景：主要指数表现、当前宏观主题（利率、通胀、地缘政治因素）以及行业趋势。将这些宏观背景与目标资产关联分析。
+2. **概述** — 公司及当前情况简要介绍（注明分析日期）
+3. **关键指标分析** — 结合更广泛市场与行业背景解读各项数据
+4. **技术分析** — 趋势与动能评估（如有数据），与市场指数表现对比
+5. **近期新闻影响** — 公司特定新闻及宏观/行业新闻对资产的综合影响
+6. **风险与机遇** — 涵盖公司特定风险及宏观驱动的风险
+7. **展望** — 结合市场趋势的中短期前景
 
 保持客观，同时呈现利好和利空因素。不要给出具体的买入/卖出建议。
 使用 Markdown 格式提升可读性。""",
@@ -115,12 +127,23 @@ Today is {current_date}.
 
 
 TOOL_REGISTRY = """
-- fetch_asset_data(symbol): Fetch complete asset profile, current price, key metrics, and recent news from yfinance
-- fetch_futu_data(symbol): Fetch real-time stock/ETF data from Futu OpenD with yfinance fallback. Richer real-time data (market snapshot, basic info) when Futu is available
-- fetch_price_history(symbol, period): Fetch OHLCV price history. period is one of: 1mo, 6mo, 1y, 5y, max
-- calculate_technicals(symbol, prices): Calculate SMA, EMA, RSI, volatility from price data. prices is a list of close prices.
-- fetch_finnhub_news(symbol): PRIMARY news tool — Fetch structured financial news for a ticker from Finnhub API (headlines, summaries, sources, dates). Always prefer this for stock/ETF news. Falls back to web search automatically if needed.
-- search_latest_news(query, max_results): GENERAL web search via DuckDuckGo — Use only for broad topics that fetch_finnhub_news cannot cover (e.g. macroeconomic news, sector trends, non-ticker queries). Do NOT use for ticker-specific news.
+Three core tools — always call all three for a complete analysis:
+
+1. fetch_market_data(symbol) → 市场基础数据 (Structured Market Data)
+   Primary: Futu OpenD real-time snapshots. Fallback: yfinance profile + metrics + market index.
+   Returns: price, volume, valuation (P/E, P/B), fundamentals (EPS, dividends), 52W range, and a relevant market index for context.
+
+2. fetch_macro_research(symbol) → 宏观与研报 (Macro & Research)
+   Primary: Web search for macro news, sector trends, central bank policy.
+   Returns: market-wide macro research, sector outlook, policy updates, economic conditions for the asset's region.
+
+3. fetch_sentiment_news(symbol) → 情绪与舆情 (Sentiment & Alternative Data)
+   Primary: Finnhub structured financial news. Fallback: yfinance → web search.
+   Returns: news articles grouped by category, with headlines, summaries, sources, and dates.
+
+Additional specialized tools:
+- fetch_price_history(symbol, period): OHLCV price history. period: 1mo, 6mo, 1y, 5y, max
+- calculate_technicals(symbol, prices): SMA, EMA, RSI, volatility from price data. prices is a list of close prices.
 """
 
 

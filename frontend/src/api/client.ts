@@ -39,6 +39,26 @@ export function getPriceHistory(symbol: string, period: string): Promise<OHLCV[]
   return get<OHLCV[]>(`/assets/${encodeURIComponent(symbol)}/price-history?period=${period}`);
 }
 
+export interface DataWidgetResult {
+  symbol: string;
+  data: string;
+}
+
+export function getMarketData(symbol: string): Promise<DataWidgetResult> {
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/market-data`);
+}
+
+export function getMacroResearch(symbol: string): Promise<DataWidgetResult> {
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/macro-research`);
+}
+
+export function getSentimentNews(symbol: string, finnhubKey?: string): Promise<DataWidgetResult> {
+  const params = new URLSearchParams();
+  if (finnhubKey) params.set('finnhub_api_key', finnhubKey);
+  const qs = params.toString();
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/sentiment-news${qs ? `?${qs}` : ''}`);
+}
+
 export function analyzeAsset(
   symbol: string,
   config: AnalysisRequest

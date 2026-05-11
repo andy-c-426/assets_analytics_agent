@@ -1,0 +1,423 @@
+/* ── Bloomberg Terminal: Data Widgets ──────────────────────── */
+
+.widget {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  margin: 0;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  flex-shrink: 0;
+}
+
+.body {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+  max-height: 440px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ── Shared Header ────────────────────────────────────────── */
+
+.mdHeader {
+  padding: 12px 16px 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.mdName {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1.3;
+}
+
+.mdSymbol {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 2px;
+}
+
+.mdAsOf {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Price Card ───────────────────────────────────────────── */
+
+.priceCard {
+  padding: 12px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  background: var(--bg-subtle);
+  margin: 0 12px;
+  border: 1px solid var(--border-subtle);
+}
+
+.priceValue {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.priceChange {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── OHLC Grid ────────────────────────────────────────────── */
+
+.ohlcGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.ohlcCell {
+  text-align: center;
+  padding: 5px 2px;
+}
+
+.ohlcLabel {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 2px;
+}
+
+.ohlcValue {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ── Sections ─────────────────────────────────────────────── */
+
+.section {
+  padding: 8px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.section:first-of-type {
+  border-top: none;
+}
+
+.sectionTitle {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.catCount {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 1px 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* ── KV Grid ──────────────────────────────────────────────── */
+
+.kvGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px 14px;
+}
+
+.kvRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2px 0;
+}
+
+.kvLabel {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.kvValue {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: right;
+}
+
+/* ── 52-Week Range Bar ────────────────────────────────────── */
+
+.rangeBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.rangeLabel {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.rangeTrack {
+  flex: 1;
+  height: 2px;
+  background: var(--border);
+  position: relative;
+}
+
+.rangeFill {
+  position: absolute;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.footerItem strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ── Macro Research: Sector Card ──────────────────────────── */
+
+.macroResearch {
+  padding-bottom: 10px;
+}
+
+.sectorCard {
+  margin: 8px 16px;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectorBadge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--bg-surface);
+  background: var(--accent);
+  padding: 3px 8px;
+}
+
+.industryText {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.etfRow {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 2px;
+}
+
+.etfSymbol {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.etfPrice {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── News List (Macro) ────────────────────────────────────── */
+
+.newsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.newsItem {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.newsItem:last-child {
+  border-bottom: none;
+}
+
+.newsDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.newsTitle {
+  font-family: var(--font-mono);
+  flex: 1 1 100%;
+  font-weight: 500;
+  color: var(--text);
+  font-size: 10.5px;
+}
+
+.newsSource {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+/* ── Note ─────────────────────────────────────────────────── */
+
+.note {
+  margin: 8px 16px 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Sentiment News ───────────────────────────────────────── */
+
+.sentimentNews {
+  padding-bottom: 10px;
+}
+
+.articleCard {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.articleCard:last-child {
+  border-bottom: none;
+}
+
+.articleMeta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.articleDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.articleSource {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.articleHeadline {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+
+.articleSummary {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* ── States ───────────────────────────────────────────────── */
+
+.skeletonWrap {
+  padding: 14px 16px;
+}
+
+.placeholder {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.fallbackPre {
+  margin: 0;
+  padding: 10px 16px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
