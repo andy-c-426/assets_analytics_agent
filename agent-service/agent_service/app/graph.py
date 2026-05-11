@@ -40,21 +40,12 @@ TOOLS_BY_NAME = {
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
-    graph.add_node("route", route_node)
     graph.add_node("plan", plan_node)
     graph.add_node("execute_tools", execute_tools_node)
     graph.add_node("observe", observe_node)
     graph.add_node("synthesize", synthesize_node)
 
-    graph.set_entry_point("route")
-    graph.add_conditional_edges(
-        "route",
-        decide_route,
-        {
-            "plan": "plan",
-            "synthesize": "synthesize",
-        },
-    )
+    graph.set_entry_point("plan")
     graph.add_edge("plan", "execute_tools")
     graph.add_edge("execute_tools", "observe")
     graph.add_conditional_edges(
@@ -69,18 +60,6 @@ def build_graph() -> StateGraph:
     graph.add_edge("synthesize", END)
 
     return graph
-
-
-def route_node(state: AgentState) -> dict:
-    """Routing node — skip to synthesize if pre-fetched data is available."""
-    return {}
-
-
-def decide_route(state: AgentState) -> Literal["plan", "synthesize"]:
-    """Route to synthesize if pre-fetched data is available, otherwise plan."""
-    if state.get("tool_results") and state.get("next_action") == "synthesize":
-        return "synthesize"
-    return "plan"
 
 
 def _build_llm(state: AgentState):
@@ -153,11 +132,34 @@ def plan_node(state: AgentState) -> dict:
     language = state.get("language", "en")
     llm = _build_llm(state)
 
+    existing_results: list[ToolResult] = state.get("tool_results", [])
+    if existing_results:
+        available_names = [r["tool"] for r in existing_results]
+        available_block = (
+            "The following data is already available (do NOT re-request these tools):\n"
+            + "\n".join(f"  - {name}: data already collected" for name in available_names)
+            + "\n\nPlan only ADDITIONAL tools beyond what's already available. "
+            "Focus on: fetch_price_history (for technical analysis) and "
+            "calculate_technicals (if price data warrants it). "
+            "If all useful data is already collected, plan an empty list []."
+        )
+    else:
+        available_block = (
+            "For a complete analysis, you MUST call ALL THREE core tools (plus additional tools as needed):\n\n"
+            "1. fetch_market_data — structured data: price, metrics, fundamentals, market index\n"
+            "2. fetch_macro_research — macro context: sector trends, policy, economic outlook\n"
+            "3. fetch_sentiment_news — alternative data: news, sentiment, market mood\n\n"
+            "Then supplement with:\n"
+            "- fetch_price_history for technical analysis (use period relative to today's date)\n"
+            "- calculate_technicals if you have price data"
+        )
+
     prompt = apply_language_instruction(
         PLAN_PROMPT.format(
             symbol=state["symbol"],
             tool_descriptions=TOOL_REGISTRY,
             current_date=_now(),
+            available_data=available_block,
         ),
         language,
     )
@@ -248,8 +250,12 @@ def execute_tools_node(state: AgentState) -> dict:
 
         messages.append(HumanMessage(content=f"Tool: {tool_name}\nArgs: {json.dumps(args)}\nResult: {summary}"))
 
+    # Merge with previously accumulated results (e.g. pre-fetched cached data)
+    accumulated = list(state.get("tool_results", []))
+    accumulated.extend(tool_results)
+
     return {
-        "tool_results": tool_results,
+        "tool_results": accumulated,
         "steps": steps,
         "messages": messages,
         "next_action": "observe",

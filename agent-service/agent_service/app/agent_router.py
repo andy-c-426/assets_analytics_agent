@@ -85,8 +85,8 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                     "summary": summary,
                     "data": {"full_result": data},
                 })
-            yield events.step_started("planning", f"Using pre-fetched data for {symbol}...")
-            yield events.step_started("synthesizing", "Pre-fetched data ready — writing report...")
+        if prefetched:
+            yield events.step_started("planning", f"Using cached data for {symbol} — planning additional tools...")
         else:
             yield events.step_started("planning", f"Starting analysis for {symbol}...")
 
@@ -104,11 +104,11 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
             "messages": [],
             "steps": [],
             "final_report": None,
-            "next_action": "synthesize" if pre_tool_results else "plan",
+            "next_action": "plan",
             "error": None,
         }
 
-        emitted_results = 0
+        emitted_results = len(pre_tool_results)
 
         async for chunk in compiled.astream(initial_state, stream_mode="updates"):
             for node_name, updates in chunk.items():

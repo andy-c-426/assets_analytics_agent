@@ -14,15 +14,7 @@ Today is {current_date}.
 Available tools:
 {tool_descriptions}
 
-For a complete analysis, you MUST call ALL THREE core tools (plus additional tools as needed):
-
-1. fetch_market_data — structured data: price, metrics, fundamentals, market index
-2. fetch_macro_research — macro context: sector trends, policy, economic outlook
-3. fetch_sentiment_news — alternative data: news, sentiment, market mood
-
-Then supplement with:
-- fetch_price_history for technical analysis (use period relative to today's date)
-- calculate_technicals if you have price data
+{available_data}
 
 Plan your tool calls. The three core tools are mandatory for every analysis.
 
