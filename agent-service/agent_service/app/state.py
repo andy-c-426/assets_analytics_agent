@@ -17,17 +17,20 @@ class ToolResult(TypedDict):
     tool: str
     args: dict
     summary: str
+    status: NotRequired[str]  # "ok" | "error"
     data: NotRequired[dict]
 
 
 class AgentState(TypedDict):
     symbol: str
     language: NotRequired[str]
-    llm_config: dict         # provider, model, api_key, base_url
+    llm_config: dict              # provider, model, api_key, base_url
+    finnhub_api_key: NotRequired[str | None]
     plan: list[ToolCallPlan]
     tool_results: list[ToolResult]
-    messages: list[dict]     # full message history for LLM context
+    messages: list[dict]          # full message history for LLM context
     steps: list[ReasoningStep]
     final_report: str | None
-    next_action: str         # "plan" | "execute_tools" | "observe" | "synthesize" | "done"
+    next_action: str              # "plan" | "execute_tools" | "observe" | "synthesize" | "done"
+    iteration_count: NotRequired[int]
     error: str | None

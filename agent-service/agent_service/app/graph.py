@@ -123,6 +123,7 @@ def _parse_plan_response(content: str, symbol: str) -> tuple[str, list[ToolCallP
 
 def plan_node(state: AgentState) -> dict:
     steps: list[ReasoningStep] = state.get("steps", [])
+    iteration = state.get("iteration_count", 0) + 1
     steps.append({
         "step_type": "planning",
         "status": "active",
@@ -188,6 +189,7 @@ def plan_node(state: AgentState) -> dict:
         "plan": plan,
         "messages": messages,
         "steps": steps,
+        "iteration_count": iteration,
         "next_action": "execute_tools",
     }
 
@@ -202,16 +204,21 @@ def execute_tools_node(state: AgentState) -> dict:
             step["status"] = "active"
             step["message"] = f"Calling {step.get('detail', 'tool')}..."
 
-    def _run_tool(call: ToolCallPlan) -> tuple[str, dict, str]:
+    def _run_tool(call: ToolCallPlan) -> tuple[str, dict, str, bool]:
         tool_name = call["tool"]
-        args = call.get("args", {})
+        args = dict(call.get("args", {}))
         tool_fn = TOOLS_BY_NAME.get(tool_name)
         if tool_fn is None:
-            return tool_name, args, f"Error: Unknown tool '{tool_name}'"
+            return tool_name, args, f"Error: Unknown tool '{tool_name}'", False
+        # Inject request-scoped config from state
+        if tool_name == "fetch_sentiment_news" and "finnhub_api_key" not in args:
+            key = state.get("finnhub_api_key") or state.get("llm_config", {}).get("finnhub_api_key")
+            if key:
+                args["finnhub_api_key"] = key
         try:
-            return tool_name, args, tool_fn.invoke(args)
+            return tool_name, args, tool_fn.invoke(args), True
         except Exception as e:
-            return tool_name, args, f"Error executing {tool_name}: {str(e)}"
+            return tool_name, args, f"Error executing {tool_name}: {str(e)}", False
 
     results_by_name: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=min(len(plan), 5)) as executor:
@@ -220,14 +227,19 @@ def execute_tools_node(state: AgentState) -> dict:
             for call in plan
         }
         for future in as_completed(futures):
-            tool_name, args, result_text = future.result()
-            results_by_name[tool_name] = result_text
+            tool_name, args, result_text, ok = future.result()
+            results_by_name[tool_name] = (result_text, ok)
 
     tool_results: list[ToolResult] = []
     for call in plan:
         tool_name = call["tool"]
         args = call.get("args", {})
-        result_text = results_by_name.get(tool_name, f"Error: No result for '{tool_name}'")
+        entry = results_by_name.get(tool_name)
+        if entry is None:
+            result_text = f"Error: No result for '{tool_name}'"
+            ok = False
+        else:
+            result_text, ok = entry
 
         for step in steps:
             if step["status"] == "active" and step["step_type"] == "tool_call":
@@ -245,6 +257,7 @@ def execute_tools_node(state: AgentState) -> dict:
             "tool": tool_name,
             "args": args,
             "summary": summary,
+            "status": "ok" if ok else "error",
             "data": {"full_result": result_text},
         })
 
@@ -415,9 +428,14 @@ def synthesize_node(state: AgentState) -> dict:
     }
 
 
+MAX_ITERATIONS = 3
+
+
 def decide_next(state: AgentState) -> Literal["plan", "synthesize", "__end__"]:
     action = state.get("next_action", "synthesize")
     if action == "plan":
+        if state.get("iteration_count", 0) >= MAX_ITERATIONS:
+            return "synthesize"
         return "plan"
     if action == "synthesize":
         return "synthesize"

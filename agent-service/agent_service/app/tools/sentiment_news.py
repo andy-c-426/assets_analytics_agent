@@ -9,22 +9,14 @@ import os
 from datetime import datetime, timedelta, timezone
 from langchain_core.tools import tool
 
-# Module-level API key — set by agent router before streaming
-_api_key: str | None = None
+
+def _get_key(api_key: str | None = None) -> str | None:
+    return api_key or os.environ.get("FINNHUB_API_KEY")
 
 
-def set_api_key(key: str | None) -> None:
-    global _api_key
-    _api_key = key
-
-
-def _get_key() -> str | None:
-    return _api_key or os.environ.get("FINNHUB_API_KEY")
-
-
-def _fetch_finnhub(symbol: str) -> str | None:
+def _fetch_finnhub(symbol: str, api_key: str | None = None) -> str | None:
     """Primary: Finnhub API for structured financial news."""
-    key = _get_key()
+    key = _get_key(api_key)
     if not key:
         return None
 
@@ -172,7 +164,7 @@ def _fetch_web_news(symbol: str) -> str:
 # ── Main tool ──────────────────────────────────────────────────
 
 @tool
-def fetch_sentiment_news(symbol: str) -> str:
+def fetch_sentiment_news(symbol: str, finnhub_api_key: str | None = None) -> str:
     """情绪与舆情 — News sentiment and alternative data for a ticker.
 
     Fetches financial news articles with headlines, summaries, categories, and sources.
@@ -184,9 +176,10 @@ def fetch_sentiment_news(symbol: str) -> str:
 
     Args:
         symbol: Ticker symbol (e.g. AAPL, TSLA, 00700.HK)
+        finnhub_api_key: Optional Finnhub API key for primary news source
     """
     # Primary: Finnhub
-    result = _fetch_finnhub(symbol)
+    result = _fetch_finnhub(symbol, api_key=finnhub_api_key)
     if result:
         return result
 

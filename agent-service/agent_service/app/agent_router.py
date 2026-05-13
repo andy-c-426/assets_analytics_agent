@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from agent_service.app.state import AgentState
 from agent_service.app.graph import build_graph
 from agent_service.app import events
-from agent_service.app.tools.sentiment_news import set_api_key as set_finnhub_key
 from agent_service.app.tools.market_data import fetch_market_data
 from agent_service.app.tools.macro_research import fetch_macro_research
 from agent_service.app.tools.sentiment_news import fetch_sentiment_news
@@ -44,9 +43,7 @@ async def macro_research(symbol: str):
 @router.get("/sentiment-news/{symbol}")
 async def sentiment_news(symbol: str, finnhub_api_key: str | None = None):
     """Fetch sentiment news for a symbol."""
-    if finnhub_api_key:
-        set_finnhub_key(finnhub_api_key)
-    result = fetch_sentiment_news.invoke({"symbol": symbol})
+    result = fetch_sentiment_news.invoke({"symbol": symbol, "finnhub_api_key": finnhub_api_key})
     return {"symbol": symbol, "data": result}
 
 
@@ -65,8 +62,6 @@ async def analyze(symbol: str, body: AnalyzeRequest):
 
 async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[str, None]:
     try:
-        set_finnhub_key(body.finnhub_api_key or None)
-
         graph = build_graph()
         compiled = graph.compile()
 
@@ -83,6 +78,7 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                     "tool": tool_name,
                     "args": {"symbol": symbol},
                     "summary": summary,
+                    "status": "ok",
                     "data": {"full_result": data},
                 })
         if prefetched:
@@ -99,12 +95,14 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                 "api_key": body.api_key,
                 "base_url": body.base_url,
             },
+            "finnhub_api_key": body.finnhub_api_key,
             "plan": [],
             "tool_results": pre_tool_results,
             "messages": [],
             "steps": [],
             "final_report": None,
             "next_action": "plan",
+            "iteration_count": 0,
             "error": None,
         }
 
