@@ -19,8 +19,8 @@ def _detect_market(symbol: str) -> dict:
     s = symbol.strip().upper()
     year = datetime.now(timezone.utc).year
 
-    # China A-Share: .SH (Shanghai) or .SZ (Shenzhen), or 6-digit numeric
-    if s.endswith(".SZ") or s.endswith(".SH") or (s.isdigit() and len(s) == 6):
+    # China A-Share: .SH/.SS (Shanghai) or .SZ (Shenzhen), or 6-digit numeric
+    if s.endswith(".SZ") or s.endswith(".SH") or s.endswith(".SS") or (s.isdigit() and len(s) == 6):
         return {
             "region": "China A-Share",
             "market": "SSE/SZSE",
