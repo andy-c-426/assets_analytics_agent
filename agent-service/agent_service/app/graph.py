@@ -32,6 +32,24 @@ from agent_service.app.cache import get_cache
 CORE_TOOLS = {"fetch_market_data", "fetch_macro_research", "fetch_sentiment_news"}
 
 
+def _resolve_prices(state: AgentState) -> list[float] | None:
+    """Extract close prices from a previous fetch_price_history result."""
+    for r in state.get("tool_results", []):
+        if r["tool"] == "fetch_price_history" and r.get("status") == "ok":
+            closes = r.get("fields", {}).get("closes", [])
+            if closes and isinstance(closes, list):
+                return closes
+    # Also try raw data as fallback
+    for r in state.get("tool_results", []):
+        if r["tool"] == "fetch_price_history" and r.get("status") == "ok":
+            raw = r.get("data", {}).get("full_result", "")
+            fields = _extract_fields("fetch_price_history", raw)
+            closes = fields.get("closes", [])
+            if closes and isinstance(closes, list):
+                return closes
+    return None
+
+
 def _extract_fields(tool_name: str, result_text: str) -> dict:
     """Extract machine-readable fields from a tool's text output."""
     fields: dict = {}
@@ -382,6 +400,13 @@ def execute_tools_node(state: AgentState) -> dict:
             key = state.get("finnhub_api_key") or state.get("llm_config", {}).get("finnhub_api_key")
             if key:
                 args["finnhub_api_key"] = key
+        # Auto-wire prices from fetch_price_history result
+        if tool_name == "calculate_technicals" and (
+            "prices" not in args or not isinstance(args.get("prices"), list)
+        ):
+            prices = _resolve_prices(state)
+            if prices:
+                args["prices"] = prices
         try:
             return tool_name, args, tool_fn.invoke(args), True
         except Exception as e:

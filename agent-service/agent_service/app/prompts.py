@@ -124,7 +124,7 @@ Core data (already collected — do NOT re-request):
 
 Supplementary tools you may plan:
 - fetch_price_history(symbol, period): OHLCV price history. period: 1mo, 6mo, 1y, 5y, max
-- calculate_technicals(symbol, prices): SMA, EMA, RSI, volatility from price data. prices is a list of close prices.
+- calculate_technicals(symbol): SMA, EMA, RSI, volatility from price history. Prices are auto-wired from the previous fetch_price_history result — do NOT pass a "prices" argument, just pass {"symbol": "..."}.
 """
 
 
