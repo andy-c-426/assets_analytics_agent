@@ -67,7 +67,6 @@ def _search_macro(symbol: str) -> str:
 
     lines = [
         f"=== Macro & Sector Research ({region} / {index}) ===",
-        f"(Note: web search results. For structured analysis, configure bigdata.com API key.)",
         "",
     ]
 
