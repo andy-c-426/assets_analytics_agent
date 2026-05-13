@@ -12,9 +12,12 @@ from langchain_core.tools import tool
 def _search_macro(symbol: str) -> str:
     """Primary: DuckDuckGo search for macro/sector research around a symbol."""
     try:
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS  # pre-rename package
     except ImportError:
-        return "Error: duckduckgo_search package not installed"
+        return "Error: ddgs package not installed"
 
     # Build macro-focused queries based on the symbol
     s = symbol.strip().upper()

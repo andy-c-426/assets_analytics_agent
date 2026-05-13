@@ -130,7 +130,10 @@ def _fetch_yfinance_news(symbol: str) -> str | None:
 def _fetch_web_news(symbol: str) -> str:
     """Tertiary: DuckDuckGo web search for news."""
     try:
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS  # pre-rename package
 
         results = []
         with DDGS() as ddgs:
@@ -142,7 +145,7 @@ def _fetch_web_news(symbol: str) -> str:
 
         lines = [
             f"=== Sentiment & News (Web Search): {symbol} ===",
-            f"Results: {len(results)}",
+            f"Articles: {len(results)}",
             "",
         ]
         for item in results:

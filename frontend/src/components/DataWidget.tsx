@@ -216,32 +216,53 @@ function SentimentNewsWidget({ parsed }: { parsed: SentimentNews }) {
   return (
     <div className={styles.sentimentNews}>
       {/* Header */}
-      <div className={styles.mdHeader}>
-        <div className={styles.mdName}>{parsed.source}</div>
-        <div className={styles.mdAsOf}>
-          {parsed.period} &middot; {parsed.articleCount} articles
+      <div className={styles.snHeader}>
+        <div className={styles.snSourceRow}>
+          <span className={styles.snSourceBadge}>{parsed.source}</span>
+          {parsed.period && (
+            <span className={styles.snPeriod}>{parsed.period}</span>
+          )}
         </div>
+        <span className={styles.snCount}>{parsed.articleCount} articles</span>
       </div>
 
       {/* Category groups */}
       {parsed.categories.map((cat, ci) => (
-        <div key={ci} className={styles.section}>
-          <h4 className={styles.sectionTitle}>
-            {cat.name}
-            <span className={styles.catCount}>{cat.count}</span>
-          </h4>
-          {cat.articles.slice(0, 3).map((a, ai) => (
-            <div key={ai} className={styles.articleCard}>
-              <div className={styles.articleMeta}>
-                <span className={styles.articleDate}>{a.date}</span>
-                <span className={styles.articleSource}>{a.source}</span>
-              </div>
-              <div className={styles.articleHeadline}>{a.headline}</div>
-              {a.summary && <div className={styles.articleSummary}>{a.summary.slice(0, 180)}{a.summary.length > 180 ? '...' : ''}</div>}
-            </div>
-          ))}
+        <div key={ci} className={styles.snCategory}>
+          <div className={styles.snCatHeader}>
+            <span className={styles.snCatDot} />
+            <h4 className={styles.snCatName}>{cat.name}</h4>
+            <span className={styles.snCatCount}>{cat.count}</span>
+          </div>
+          <div className={styles.snArticles}>
+            {cat.articles.map((a, ai) => (
+              <a
+                key={ai}
+                href={a.url || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${styles.snArticle} ${a.url ? styles.snArticleLink : ''}`}
+              >
+                <div className={styles.snArticleMeta}>
+                  <span className={styles.snArticleDate}>{a.date}</span>
+                  {a.source && <span className={styles.snArticleSource}>{a.source}</span>}
+                  {a.url && <span className={styles.snExternalIcon}>&#8599;</span>}
+                </div>
+                <div className={styles.snArticleHeadline}>{a.headline}</div>
+                {a.summary && (
+                  <div className={styles.snArticleSummary}>
+                    {a.summary.length > 200 ? a.summary.slice(0, 200) + '...' : a.summary}
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
         </div>
       ))}
+
+      {parsed.categories.length === 0 && (
+        <p className={styles.placeholder}>No articles found for this period.</p>
+      )}
     </div>
   );
 }

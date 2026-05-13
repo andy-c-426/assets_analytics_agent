@@ -79,7 +79,7 @@ def _extract_fields(tool_name: str, result_text: str) -> dict:
             fields["source"] = "yfinance"
         else:
             fields["source"] = "web_search"
-        m = re.search(r"Articles?:\s*(\d+)", result_text)
+        m = re.search(r"(?:Articles?|Results):\s*(\d+)", result_text)
         if m:
             fields["article_count"] = int(m.group(1))
         m = re.search(r"Period:\s*(\S.+)", result_text)

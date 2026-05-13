@@ -254,12 +254,13 @@ export function parseSentimentNews(raw: string): SentimentNews | null {
   const periodMatch = raw.match(/Period:\s*(.+)/);
   if (periodMatch) result.period = periodMatch[1];
 
-  const countMatch = raw.match(/Articles:\s*(\d+)/);
+  const countMatch = raw.match(/(?:Articles|Results):\s*(\d+)/);
   if (countMatch) result.articleCount = parseInt(countMatch[1]);
 
+  // Category sections for Finnhub format: --- CATEGORY (N articles) ---
   const catRegex = /---\s*(.+?)\s*\((\d+)\s*articles?\)\s*---/g;
   const catSections: { start: number; end: number; name: string; count: number }[] = [];
-  let catMatch;
+  let catMatch: RegExpExecArray | null;
   while ((catMatch = catRegex.exec(raw)) !== null) {
     catSections.push({
       start: catMatch.index + catMatch[0].length,
@@ -272,25 +273,43 @@ export function parseSentimentNews(raw: string): SentimentNews | null {
     catSections[i].end = i + 1 < catSections.length ? catSections[i + 1].start : raw.length;
   }
 
+  // If no category sections found (yfinance / web search), treat all articles as one "News" category
+  if (catSections.length === 0) {
+    const lines = raw.split('\n');
+    // Count actual article blocks
+    const articleHeaders = lines.filter(l => /^\s*-?\s*\[[\d]{4}-[\d]{2}-[\d]{2}[^\]]*\]/.test(l));
+    if (articleHeaders.length > 0) {
+      catSections.push({ start: 0, end: raw.length, name: 'News', count: articleHeaders.length });
+    }
+  }
+
   for (const cs of catSections) {
     const sectionText = raw.slice(cs.start, cs.end);
     const articles: SentimentNews['categories'][0]['articles'] = [];
-    const articleBlocks = sectionText.split(/\n(?=\[\d{4}-)/);
+    // Split by article headers: either "[YYYY-MM-DD" or "- [YYYY-MM-DD"
+    const articleBlocks = sectionText.split(/\n(?=\s*-?\s*\[[\d]{4}-)/);
     for (const block of articleBlocks) {
-      const dateMatch = block.match(/^\[([^\]]+)\]\s*(.+)/);
+      // Match date+headline: optional "- " then "[date] headline"
+      const dateMatch = block.match(/^\s*-?\s*\[([^\]]+)\]\s*(.+)/);
       if (!dateMatch) continue;
-      const sourceMatch = block.match(/Source:\s*(.+?)\s*\|?\s*(https?:\/\/\S+)?/);
-      const summaryMatch = block.match(/Summary:\s*(.+?)(?:\n|$)/);
+
+      const sourceMatch = block.match(/(?:Source|Publisher):\s*(.+?)\s*\|?\s*(https?:\/\/\S+)?/m);
+      const linkMatch = block.match(/Link:\s*(https?:\/\/\S+)/m);
+      const summaryMatch = block.match(/(?:Summary|Body):\s*(.+?)(?:\n|$)/m);
+
+      const source = sourceMatch ? sourceMatch[1].trim() : '';
+      const url = (sourceMatch && sourceMatch[2]) ? sourceMatch[2].trim() : (linkMatch ? linkMatch[1].trim() : '');
+
       articles.push({
-        date: dateMatch[1],
-        headline: dateMatch[2],
-        source: sourceMatch ? sourceMatch[1].trim() : '',
-        url: sourceMatch && sourceMatch[2] ? sourceMatch[2].trim() : '',
+        date: dateMatch[1].trim(),
+        headline: dateMatch[2].trim(),
+        source,
+        url,
         summary: summaryMatch ? summaryMatch[1].trim() : '',
       });
     }
     if (articles.length) {
-      result.categories.push({ name: cs.name, count: cs.count, articles });
+      result.categories.push({ name: cs.name, count: cs.count || articles.length, articles });
     }
   }
 
