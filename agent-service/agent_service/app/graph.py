@@ -400,11 +400,22 @@ def execute_tools_node(state: AgentState) -> dict:
             key = state.get("finnhub_api_key") or state.get("llm_config", {}).get("finnhub_api_key")
             if key:
                 args["finnhub_api_key"] = key
-        # Auto-wire prices from fetch_price_history result
+        # Auto-wire prices from fetch_price_history result.
+        # Tools run in parallel — the price history may not have finished yet,
+        # so run it inline as a fallback if not already in accumulated results.
         if tool_name == "calculate_technicals" and (
             "prices" not in args or not isinstance(args.get("prices"), list)
         ):
             prices = _resolve_prices(state)
+            if not prices:
+                try:
+                    ph_result = fetch_price_history.invoke({
+                        "symbol": state["symbol"],
+                        "period": "6mo",
+                    })
+                    prices = _extract_fields("fetch_price_history", ph_result).get("closes", [])
+                except Exception:
+                    prices = []
             if prices:
                 args["prices"] = prices
         try:
