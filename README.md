@@ -21,18 +21,18 @@ Built with Claude Code + DeepSeek V4 Pro.
 
 ```mermaid
 graph TD
-    Browser["Browser (React SPA)"]
-    Backend["FastAPI Backend<br/>port 8000"]
-    Agent["Agent Service<br/>port 8001"]
-    YF["yfinance"]
-    Futu["Futu OpenD<br/>(optional)"]
-    Finnhub["Finnhub<br/>(optional)"]
-    DDG["DuckDuckGo"]
-    LLM["Claude / GPT / DeepSeek"]
+    Browser[Browser - React SPA]
+    Backend[FastAPI Backend - port 8000]
+    Agent[Agent Service - port 8001]
+    YF[yfinance]
+    Futu[Futu OpenD - optional]
+    Finnhub[Finnhub - optional]
+    DDG[DuckDuckGo]
+    LLM[Claude / GPT / DeepSeek]
 
-    Browser -->|"/api/*"| Backend
+    Browser --> Backend
     Backend --> YF
-    Backend -->|"POST /api/analyze/{symbol}<br/>(SSE proxy)"| Agent
+    Backend --> Agent
     Agent --> Futu
     Agent --> Finnhub
     Agent --> DDG
@@ -53,8 +53,8 @@ stateDiagram-v2
     plan --> execute_tools : plan not empty
     plan --> observe : plan empty
     execute_tools --> observe
-    observe --> plan : need more data<br/>(≤3 iterations)
-    observe --> collect_core_data : core data<br/>incomplete
+    observe --> plan : need more data
+    observe --> collect_core_data : core data incomplete
     observe --> synthesize : data sufficient
     synthesize --> [*]
 ```
