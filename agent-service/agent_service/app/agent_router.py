@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent_service.app.state import AgentState
-from agent_service.app.graph import build_graph
+from agent_service.app.graph import build_graph, _extract_fields
 from agent_service.app import events
 from agent_service.app.tools.market_data import fetch_market_data
 from agent_service.app.tools.macro_research import fetch_macro_research
@@ -79,12 +79,13 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                     "args": {"symbol": symbol},
                     "summary": summary,
                     "status": "ok",
+                    "fields": _extract_fields(tool_name, data),
                     "data": {"full_result": data},
                 })
         if prefetched:
-            yield events.step_started("planning", f"Using cached data for {symbol} — planning additional tools...")
+            yield events.step_started("planning", f"Using cached data for {symbol}...")
         else:
-            yield events.step_started("planning", f"Starting analysis for {symbol}...")
+            yield events.step_started("planning", f"Gathering core data for {symbol}...")
 
         initial_state: AgentState = {
             "symbol": symbol,
@@ -113,7 +114,16 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                 steps = updates.get("steps", [])
                 tool_results = updates.get("tool_results", [])
 
-                if node_name == "plan":
+                if node_name == "collect_core_data":
+                    new_results = tool_results[emitted_results:]
+                    for r in new_results:
+                        yield events.tool_called(r["tool"], r.get("args", {}))
+                        await asyncio.sleep(0.2)
+                        yield events.tool_result(r["tool"], r["summary"])
+                        await asyncio.sleep(0.2)
+                    emitted_results = len(tool_results)
+
+                elif node_name == "plan":
                     for step in reversed(steps):
                         if step["step_type"] == "planning" and step["status"] == "done":
                             detail = step.get("detail", "")

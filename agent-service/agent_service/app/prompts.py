@@ -11,16 +11,16 @@ PLAN_PROMPT = """You are a professional financial analyst. You are analyzing the
 
 Today is {current_date}.
 
-Available tools:
+Available tools (core data already collected, use these for supplementary research):
 {tool_descriptions}
 
 {available_data}
 
-Plan your tool calls. The three core tools are mandatory for every analysis.
+Plan supplementary tool calls to deepen the analysis.
 
 Reply with your reasoning on the first line, then the JSON plan on the second line:
 
-Your reasoning here (one line explaining what data you need and why, referencing the date)
+Your reasoning here (one line explaining what additional data you need and why)
 [{{"tool": "tool_name", "args": {{"arg": "value"}}}}]
 
 Only return these two lines, nothing else."""
@@ -29,22 +29,20 @@ OBSERVE_PROMPT = """You are a professional financial analyst analyzing {symbol}.
 
 Today is {current_date}.
 
-You have executed tools and received results:
+Core data (market data, macro research, sentiment news) has been collected.
+You also have these supplementary results:
 
 {tool_results_summary}
 
-Do you have enough data to write a comprehensive analysis? You need ALL THREE data types:
-- 市场基础数据 (Structured): Asset metrics, price, fundamentals, market index — from fetch_market_data
-- 宏观与研报 (Macro): Sector trends, policy, economic outlook — from fetch_macro_research
-- 情绪与舆情 (Sentiment): News articles, categories, market mood — from fetch_sentiment_news
+Is the supplementary data sufficient for a thorough analysis?
 
-If any of the three core data types is missing, mark decision "more" and specify which tool to call.
-Also consider whether you need price history (fetch_price_history) for technical analysis.
+- If price history or technicals would add meaningful depth and haven't been collected yet, request them.
+- If the data is comprehensive enough, mark decision "enough".
 
 Reply in JSON format exactly like this:
-{{"decision": "enough", "missing": [], "reasoning": "All three data types collected"}}
+{{"decision": "enough", "missing": [], "reasoning": "Data is comprehensive"}}
 or
-{{"decision": "more", "missing": ["macro_research"], "reasoning": "Missing macro and sector context"}}
+{{"decision": "more", "missing": ["fetch_price_history"], "reasoning": "Need price history for technical context"}}
 
 Only return the JSON object, nothing else."""
 
@@ -119,21 +117,12 @@ Today is {current_date}.
 
 
 TOOL_REGISTRY = """
-Three core tools — always call all three for a complete analysis:
+Core data (already collected — do NOT re-request):
+  fetch_market_data → price, metrics, fundamentals, 52W range, market index
+  fetch_macro_research → macro news, sector trends, policy updates
+  fetch_sentiment_news → news articles grouped by category, sentiment
 
-1. fetch_market_data(symbol) → 市场基础数据 (Structured Market Data)
-   Primary: Futu OpenD real-time snapshots. Fallback: yfinance profile + metrics + market index.
-   Returns: price, volume, valuation (P/E, P/B), fundamentals (EPS, dividends), 52W range, and a relevant market index for context.
-
-2. fetch_macro_research(symbol) → 宏观与研报 (Macro & Research)
-   Primary: Web search for macro news, sector trends, central bank policy.
-   Returns: market-wide macro research, sector outlook, policy updates, economic conditions for the asset's region.
-
-3. fetch_sentiment_news(symbol) → 情绪与舆情 (Sentiment & Alternative Data)
-   Primary: Finnhub structured financial news. Fallback: yfinance → web search.
-   Returns: news articles grouped by category, with headlines, summaries, sources, and dates.
-
-Additional specialized tools:
+Supplementary tools you may plan:
 - fetch_price_history(symbol, period): OHLCV price history. period: 1mo, 6mo, 1y, 5y, max
 - calculate_technicals(symbol, prices): SMA, EMA, RSI, volatility from price data. prices is a list of close prices.
 """

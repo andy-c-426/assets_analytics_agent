@@ -1,4 +1,5 @@
 import json
+import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
@@ -28,6 +29,105 @@ from agent_service.app.analytics.metrics import (
 from agent_service.app.cache import get_cache
 
 
+CORE_TOOLS = {"fetch_market_data", "fetch_macro_research", "fetch_sentiment_news"}
+
+
+def _extract_fields(tool_name: str, result_text: str) -> dict:
+    """Extract machine-readable fields from a tool's text output."""
+    fields: dict = {}
+
+    if tool_name == "fetch_market_data":
+        m = re.search(r"Current:\s*([\d.]+)", result_text)
+        if m:
+            fields["current_price"] = float(m.group(1))
+        m = re.search(r"P/E(?:\s*TTM)?:\s*([\d.]+)", result_text)
+        if m:
+            fields["pe"] = float(m.group(1))
+        m = re.search(r"P/B:\s*([\d.]+)", result_text)
+        if m:
+            fields["pb"] = float(m.group(1))
+        m = re.search(r"EPS:\s*\$?([\d.]+)", result_text)
+        if m:
+            fields["eps"] = float(m.group(1))
+        m = re.search(r"Market Cap:\s*\$?([\d.]+[TBM]?)", result_text)
+        if m:
+            fields["market_cap"] = m.group(1)
+        m = re.search(r"Sector:\s*(\S.*?)(?:\s*[|]|\s*\n)", result_text)
+        if m:
+            fields["sector"] = m.group(1).strip()
+        m = re.search(r"Country:\s*(\S+)", result_text)
+        if m:
+            fields["country"] = m.group(1).strip()
+        fields["source"] = "futu" if "Futu Real-Time" in result_text else "yfinance"
+        m = re.search(r"As of:\s*(\S.+)", result_text)
+        if m:
+            fields["as_of"] = m.group(1).strip()
+
+    elif tool_name == "fetch_macro_research":
+        m = re.search(r"Macro & Sector Research\s*\(([^)]+)\)", result_text)
+        if m:
+            parts = m.group(1).split("/")
+            fields["region"] = parts[0].strip() if parts else ""
+            fields["index"] = parts[1].strip() if len(parts) > 1 else ""
+        fields["article_count"] = len(re.findall(r"^-\s*\[", result_text, re.MULTILINE))
+        fields["source"] = "web_search"
+
+    elif tool_name == "fetch_sentiment_news":
+        if "Finnhub" in result_text:
+            fields["source"] = "finnhub"
+        elif "yfinance" in result_text:
+            fields["source"] = "yfinance"
+        else:
+            fields["source"] = "web_search"
+        m = re.search(r"Articles?:\s*(\d+)", result_text)
+        if m:
+            fields["article_count"] = int(m.group(1))
+        m = re.search(r"Period:\s*(\S.+)", result_text)
+        if m:
+            fields["period"] = m.group(1).strip()
+
+    elif tool_name == "fetch_price_history":
+        records = []
+        closes = []
+        for line in result_text.split("\n"):
+            m = re.match(
+                r"(\d{4}-\d{2}-\d{2}):\s*O=([\d.]+)\s*H=([\d.]+)\s*L=([\d.]+)\s*C=([\d.]+)\s*V=(\d+)",
+                line,
+            )
+            if m:
+                record = {
+                    "date": m.group(1),
+                    "open": float(m.group(2)),
+                    "high": float(m.group(3)),
+                    "low": float(m.group(4)),
+                    "close": float(m.group(5)),
+                    "volume": int(m.group(6)),
+                }
+                records.append(record)
+                closes.append(record["close"])
+        fields["records"] = records
+        fields["closes"] = closes
+
+    elif tool_name == "calculate_technicals":
+        m = re.search(r"Trend:\s*(.+)", result_text)
+        if m:
+            fields["trend"] = m.group(1).strip()
+        m = re.search(r"RSI[^:]*:\s*([\d.]+)", result_text)
+        if m:
+            fields["rsi"] = float(m.group(1))
+        m = re.search(r"SMA 10-day:\s*\$?([\d.]+)", result_text)
+        if m:
+            fields["sma_10"] = float(m.group(1))
+        m = re.search(r"SMA 20-day:\s*\$?([\d.]+)", result_text)
+        if m:
+            fields["sma_20"] = float(m.group(1))
+        m = re.search(r"Volatility[^:]*:\s*([\d.]+)%", result_text)
+        if m:
+            fields["volatility"] = float(m.group(1))
+
+    return fields
+
+
 TOOLS_BY_NAME = {
     "fetch_market_data": fetch_market_data,
     "fetch_macro_research": fetch_macro_research,
@@ -40,12 +140,14 @@ TOOLS_BY_NAME = {
 def build_graph() -> StateGraph:
     graph = StateGraph(AgentState)
 
+    graph.add_node("collect_core_data", collect_core_data_node)
     graph.add_node("plan", plan_node)
     graph.add_node("execute_tools", execute_tools_node)
     graph.add_node("observe", observe_node)
     graph.add_node("synthesize", synthesize_node)
 
-    graph.set_entry_point("plan")
+    graph.set_entry_point("collect_core_data")
+    graph.add_edge("collect_core_data", "plan")
     graph.add_edge("plan", "execute_tools")
     graph.add_edge("execute_tools", "observe")
     graph.add_conditional_edges(
@@ -53,6 +155,7 @@ def build_graph() -> StateGraph:
         decide_next,
         {
             "plan": "plan",
+            "collect_core_data": "collect_core_data",
             "synthesize": "synthesize",
             "done": END,
         },
@@ -60,6 +163,70 @@ def build_graph() -> StateGraph:
     graph.add_edge("synthesize", END)
 
     return graph
+
+
+def collect_core_data_node(state: AgentState) -> dict:
+    """Deterministically run the 3 core tools in parallel, skipping cached results."""
+    steps: list[ReasoningStep] = state.get("steps", [])
+    existing: list[ToolResult] = list(state.get("tool_results", []))
+    existing_ok = {r["tool"] for r in existing if r.get("status") == "ok"}
+    missing = CORE_TOOLS - existing_ok
+
+    if not missing:
+        steps.append({
+            "step_type": "tool_call",
+            "status": "done",
+            "message": "All core data already available (cached)",
+            "detail": ", ".join(sorted(existing_ok)),
+        })
+        return {"steps": steps, "next_action": "plan"}
+
+    steps.append({
+        "step_type": "tool_call",
+        "status": "active",
+        "message": f"Collecting core data: {', '.join(sorted(missing))}...",
+    })
+
+    symbol = state["symbol"]
+    finnhub_key = state.get("finnhub_api_key")
+
+    def _run_core(tool_name: str) -> tuple[str, str, bool]:
+        tool_fn = TOOLS_BY_NAME[tool_name]
+        args: dict = {"symbol": symbol}
+        if tool_name == "fetch_sentiment_news" and finnhub_key:
+            args["finnhub_api_key"] = finnhub_key
+        try:
+            return tool_name, tool_fn.invoke(args), True
+        except Exception as e:
+            return tool_name, f"Error executing {tool_name}: {str(e)}", False
+
+    new_results: list[ToolResult] = []
+    with ThreadPoolExecutor(max_workers=len(missing)) as executor:
+        futures = {executor.submit(_run_core, name): name for name in missing}
+        for future in as_completed(futures):
+            tool_name, result_text, ok = future.result()
+            summary_lines = result_text.split("\n")
+            summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
+            if len(summary) > 150:
+                summary = summary[:147] + "..."
+            new_results.append({
+                "tool": tool_name,
+                "args": {"symbol": symbol},
+                "summary": summary,
+                "status": "ok" if ok else "error",
+                "fields": _extract_fields(tool_name, result_text) if ok else {},
+                "data": {"full_result": result_text},
+            })
+
+    accumulated = existing + new_results
+    steps[-1]["status"] = "done"
+    steps[-1]["detail"] = f"Collected {len(new_results)} core data source(s)"
+
+    return {
+        "tool_results": accumulated,
+        "steps": steps,
+        "next_action": "plan",
+    }
 
 
 def _build_llm(state: AgentState):
@@ -134,26 +301,15 @@ def plan_node(state: AgentState) -> dict:
     llm = _build_llm(state)
 
     existing_results: list[ToolResult] = state.get("tool_results", [])
-    if existing_results:
-        available_names = [r["tool"] for r in existing_results]
-        available_block = (
-            "The following data is already available (do NOT re-request these tools):\n"
-            + "\n".join(f"  - {name}: data already collected" for name in available_names)
-            + "\n\nPlan only ADDITIONAL tools beyond what's already available. "
-            "Focus on: fetch_price_history (for technical analysis) and "
-            "calculate_technicals (if price data warrants it). "
-            "If all useful data is already collected, plan an empty list []."
-        )
-    else:
-        available_block = (
-            "For a complete analysis, you MUST call ALL THREE core tools (plus additional tools as needed):\n\n"
-            "1. fetch_market_data — structured data: price, metrics, fundamentals, market index\n"
-            "2. fetch_macro_research — macro context: sector trends, policy, economic outlook\n"
-            "3. fetch_sentiment_news — alternative data: news, sentiment, market mood\n\n"
-            "Then supplement with:\n"
-            "- fetch_price_history for technical analysis (use period relative to today's date)\n"
-            "- calculate_technicals if you have price data"
-        )
+    available_names = [r["tool"] for r in existing_results]
+    available_block = (
+        "Core data already collected:\n"
+        + "\n".join(f"  - {name}: {r.get('status', 'ok')}" for r in existing_results for name in [r['tool']])
+        + "\n\nPlan ONLY additional tools beyond the core three. "
+        "Consider: fetch_price_history (choose period: 1mo, 6mo, 1y, 5y, max) "
+        "and calculate_technicals (requires price data first). "
+        "If no additional data would meaningfully improve the analysis, plan []."
+    )
 
     prompt = apply_language_instruction(
         PLAN_PROMPT.format(
@@ -258,6 +414,7 @@ def execute_tools_node(state: AgentState) -> dict:
             "args": args,
             "summary": summary,
             "status": "ok" if ok else "error",
+            "fields": _extract_fields(tool_name, result_text) if ok else {},
             "data": {"full_result": result_text},
         })
 
@@ -297,6 +454,20 @@ def _parse_observe_response(content: str) -> tuple[str, list[str], str]:
         return "enough", [], content
 
 
+def validate_coverage(tool_results: list[ToolResult]) -> dict:
+    """Deterministic check: are all 3 core data types present and healthy?"""
+    present = {r["tool"]: r for r in tool_results}
+    missing = [t for t in CORE_TOOLS if t not in present]
+    errored = [t for t in CORE_TOOLS if t in present and present[t].get("status") == "error"]
+    ok = [t for t in CORE_TOOLS if t in present and present[t].get("status") == "ok"]
+    return {
+        "core_complete": len(ok) == 3,
+        "ok": ok,
+        "missing": missing,
+        "errored": errored,
+    }
+
+
 def observe_node(state: AgentState) -> dict:
     steps: list[ReasoningStep] = state.get("steps", [])
     steps.append({
@@ -305,6 +476,32 @@ def observe_node(state: AgentState) -> dict:
         "message": "Evaluating collected data...",
     })
 
+    # --- Deterministic coverage check ---
+    coverage = validate_coverage(state["tool_results"])
+    if not coverage["core_complete"]:
+        detail_parts = []
+        if coverage["missing"]:
+            detail_parts.append(f"missing: {', '.join(coverage['missing'])}")
+        if coverage["errored"]:
+            detail_parts.append(f"errors: {', '.join(coverage['errored'])}")
+        steps[-1]["status"] = "done"
+        steps[-1]["detail"] = f"Incomplete core data — {'; '.join(detail_parts)}"
+        if coverage["missing"]:
+            missing_str = ", ".join(coverage["missing"])
+            msg = f"Re-collecting core data ({missing_str})..."
+        else:
+            msg = "Re-collecting core data..."
+        steps.append({
+            "step_type": "tool_call",
+            "status": "pending",
+            "message": msg,
+        })
+        return {
+            "steps": steps,
+            "next_action": "collect_core_data",
+        }
+
+    # --- LLM qualitative judgment ---
     language = state.get("language", "en")
     llm = _build_llm(state)
 
@@ -431,11 +628,13 @@ def synthesize_node(state: AgentState) -> dict:
 MAX_ITERATIONS = 3
 
 
-def decide_next(state: AgentState) -> Literal["plan", "synthesize", "__end__"]:
+def decide_next(state: AgentState) -> Literal["collect_core_data", "plan", "synthesize", "__end__"]:
     action = state.get("next_action", "synthesize")
+    if state.get("iteration_count", 0) >= MAX_ITERATIONS:
+        return "synthesize"
+    if action == "collect_core_data":
+        return "collect_core_data"
     if action == "plan":
-        if state.get("iteration_count", 0) >= MAX_ITERATIONS:
-            return "synthesize"
         return "plan"
     if action == "synthesize":
         return "synthesize"

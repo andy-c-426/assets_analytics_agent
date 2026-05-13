@@ -17,7 +17,8 @@ class ToolResult(TypedDict):
     tool: str
     args: dict
     summary: str
-    status: NotRequired[str]  # "ok" | "error"
+    status: NotRequired[str]   # "ok" | "error"
+    fields: NotRequired[dict]  # machine-readable structured fields
     data: NotRequired[dict]
 
 
