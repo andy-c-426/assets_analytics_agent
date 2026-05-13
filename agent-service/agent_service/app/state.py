@@ -6,17 +6,20 @@ class ReasoningStep(TypedDict):
     status: str           # "pending" | "active" | "done"
     message: str
     detail: NotRequired[str]
+    call_id: NotRequired[str]
 
 
 class ToolCallPlan(TypedDict):
     tool: str
     args: dict
+    call_id: NotRequired[str]  # "toolname_index" — unique per invocation
 
 
 class ToolResult(TypedDict):
     tool: str
     args: dict
     summary: str
+    call_id: NotRequired[str]  # matches ToolCallPlan.call_id
     status: NotRequired[str]   # "ok" | "error"
     fields: NotRequired[dict]  # machine-readable structured fields
     data: NotRequired[dict]

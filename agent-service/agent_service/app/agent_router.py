@@ -77,6 +77,7 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                 pre_tool_results.append({
                     "tool": tool_name,
                     "args": {"symbol": symbol},
+                    "call_id": f"{tool_name}_cached",
                     "summary": summary,
                     "status": "ok",
                     "fields": _extract_fields(tool_name, data),

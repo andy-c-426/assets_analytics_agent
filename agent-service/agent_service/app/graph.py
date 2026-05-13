@@ -148,7 +148,14 @@ def build_graph() -> StateGraph:
 
     graph.set_entry_point("collect_core_data")
     graph.add_edge("collect_core_data", "plan")
-    graph.add_edge("plan", "execute_tools")
+    graph.add_conditional_edges(
+        "plan",
+        decide_after_plan,
+        {
+            "execute_tools": "execute_tools",
+            "observe": "observe",
+        },
+    )
     graph.add_edge("execute_tools", "observe")
     graph.add_conditional_edges(
         "observe",
@@ -212,6 +219,7 @@ def collect_core_data_node(state: AgentState) -> dict:
             new_results.append({
                 "tool": tool_name,
                 "args": {"symbol": symbol},
+                "call_id": f"{tool_name}_core",
                 "summary": summary,
                 "status": "ok" if ok else "error",
                 "fields": _extract_fields(tool_name, result_text) if ok else {},
@@ -278,9 +286,9 @@ def _parse_plan_response(content: str, symbol: str) -> tuple[str, list[ToolCallP
         elif isinstance(parsed, dict):
             plan = [parsed]
     except json.JSONDecodeError:
-        plan = [{"tool": "fetch_asset_data", "args": {"symbol": symbol}}]
+        plan = [{"tool": "fetch_price_history", "args": {"symbol": symbol, "period": "6mo"}}]
         if not reasoning:
-            reasoning = "Gathering basic asset data"
+            reasoning = "Gathering price history for technical context"
 
     if not reasoning:
         reasoning = f"Planned {len(plan)} tool call(s)"
@@ -333,12 +341,15 @@ def plan_node(state: AgentState) -> dict:
 
     steps[-1]["status"] = "done"
     steps[-1]["detail"] = reasoning
-    for p in plan:
+    for i, p in enumerate(plan):
+        call_id = f"{p['tool']}_{i}"
+        p["call_id"] = call_id
         steps.append({
             "step_type": "tool_call",
             "status": "pending",
             "message": f"Planned: {p['tool']}",
             "detail": str(p.get("args", {})),
+            "call_id": call_id,
         })
 
     return {
@@ -346,7 +357,7 @@ def plan_node(state: AgentState) -> dict:
         "messages": messages,
         "steps": steps,
         "iteration_count": iteration,
-        "next_action": "execute_tools",
+        "next_action": "observe" if not plan else "execute_tools",
     }
 
 
@@ -376,7 +387,7 @@ def execute_tools_node(state: AgentState) -> dict:
         except Exception as e:
             return tool_name, args, f"Error executing {tool_name}: {str(e)}", False
 
-    results_by_name: dict[str, str] = {}
+    results_by_id: dict[str, tuple[str, bool]] = {}
     with ThreadPoolExecutor(max_workers=min(len(plan), 5)) as executor:
         futures = {
             executor.submit(_run_tool, call): call
@@ -384,13 +395,16 @@ def execute_tools_node(state: AgentState) -> dict:
         }
         for future in as_completed(futures):
             tool_name, args, result_text, ok = future.result()
-            results_by_name[tool_name] = (result_text, ok)
+            call = futures[future]
+            cid = call.get("call_id", tool_name)
+            results_by_id[cid] = (result_text, ok)
 
     tool_results: list[ToolResult] = []
     for call in plan:
         tool_name = call["tool"]
         args = call.get("args", {})
-        entry = results_by_name.get(tool_name)
+        cid = call.get("call_id", tool_name)
+        entry = results_by_id.get(cid)
         if entry is None:
             result_text = f"Error: No result for '{tool_name}'"
             ok = False
@@ -399,7 +413,7 @@ def execute_tools_node(state: AgentState) -> dict:
 
         for step in steps:
             if step["status"] == "active" and step["step_type"] == "tool_call":
-                if tool_name in step.get("detail", ""):
+                if step.get("call_id") == cid:
                     step["status"] = "done"
                     step["message"] = f"Completed: {tool_name}"
                     break
@@ -412,6 +426,7 @@ def execute_tools_node(state: AgentState) -> dict:
         tool_results.append({
             "tool": tool_name,
             "args": args,
+            "call_id": cid,
             "summary": summary,
             "status": "ok" if ok else "error",
             "fields": _extract_fields(tool_name, result_text) if ok else {},
@@ -626,6 +641,13 @@ def synthesize_node(state: AgentState) -> dict:
 
 
 MAX_ITERATIONS = 3
+
+
+def decide_after_plan(state: AgentState) -> Literal["execute_tools", "observe"]:
+    """Skip execute_tools if the plan is empty."""
+    if state.get("next_action") == "observe":
+        return "observe"
+    return "execute_tools"
 
 
 def decide_next(state: AgentState) -> Literal["collect_core_data", "plan", "synthesize", "__end__"]:
