@@ -6,6 +6,8 @@ Secondary: yfinance — delayed but comprehensive profile, metrics, index data
 
 from langchain_core.tools import tool
 
+from agent_service.app.tools.market_utils import detect_market
+
 
 # ── Futu helpers (reused from futu_data.py) ─────────────────────
 
@@ -13,19 +15,12 @@ def _resolve_futu_codes(symbol: str) -> list[str]:
     s = symbol.strip().upper()
     if "." in s:
         return [s]
-    _known = {
-        "AAPL": "US", "MSFT": "US", "GOOGL": "US", "AMZN": "US", "TSLA": "US",
-        "META": "US", "NVDA": "US", "NFLX": "US", "BRK.A": "US", "BRK.B": "US",
-        "JPM": "US", "V": "US", "WMT": "US", "JNJ": "US", "PG": "US", "XOM": "US",
-        "BAC": "US", "MA": "US", "DIS": "US", "ADBE": "US", "CRM": "US",
-        "00700": "HK", "09988": "HK", "09618": "HK", "03690": "HK",
-        "00388": "HK", "02318": "HK", "00005": "HK", "00941": "HK",
-        "01810": "HK", "01398": "HK", "03988": "HK", "01299": "HK",
-    }
-    if s in _known:
-        return [f"{_known[s]}.{s}"]
+
+    market = detect_market(symbol)
+    prefixes = market.get("futu_prefixes", ["US", "HK"])
+
     stripped = s.lstrip("0") or "0"
-    return [f"US.{s}", f"HK.{stripped}"]
+    return [f"{p}.{stripped}" for p in prefixes]
 
 
 def _try_futu(symbol: str) -> str | None:
@@ -95,6 +90,15 @@ def _format_snapshot(code: str, row) -> str:
             return None
         return str(val)
 
+    # Derive currency symbol from Futu code prefix
+    prefix = code.split(".")[0] if "." in code else ""
+    currency_map = {
+        "US": "$", "HK": "HK$", "SH": "¥", "SZ": "¥",
+        "JP": "¥", "KR": "₩", "TW": "NT$", "SG": "S$",
+        "AU": "A$", "CA": "C$", "UK": "£",
+    }
+    currency_symbol = currency_map.get(prefix, "$")
+
     name = _vs("name") or code
     update = _vs("update_time")
     lines = [f"=== Futu Real-Time Data: {name} ({code}) ==="]
@@ -133,7 +137,7 @@ def _format_snapshot(code: str, row) -> str:
                       ("total_market_val", "Market Cap"), ("ey_ratio", "Earnings Yield (%)")]:
         val = _vf(f)
         if val is not None:
-            fmt = _fmt_big(val) if "market" in f.lower() else f"{val:.2f}"
+            fmt = _fmt_big(val, currency_symbol) if "market" in f.lower() else f"{val:.2f}"
             lines.append(f"{label}: {fmt}")
 
     lines.append("\n[Fundamentals]")
@@ -176,14 +180,14 @@ def _format_basicinfo(code: str, row) -> str:
     return "\n".join(lines)
 
 
-def _fmt_big(n: float) -> str:
+def _fmt_big(n: float, currency_symbol: str = "$") -> str:
     if abs(n) >= 1e12:
-        return f"${n / 1e12:.2f}T"
+        return f"{currency_symbol}{n / 1e12:.2f}T"
     if abs(n) >= 1e9:
-        return f"${n / 1e9:.2f}B"
+        return f"{currency_symbol}{n / 1e9:.2f}B"
     if abs(n) >= 1e6:
-        return f"${n / 1e6:.2f}M"
-    return f"${n:,.0f}"
+        return f"{currency_symbol}{n / 1e6:.2f}M"
+    return f"{currency_symbol}{n:,.0f}"
 
 
 # ── yfinance fallback ──────────────────────────────────────────
@@ -222,12 +226,20 @@ def _fetch_yfinance_market_data(symbol: str) -> str:
         high_52w = info.get("fiftyTwoWeekHigh")
         low_52w = info.get("fiftyTwoWeekLow")
 
+        # Map ISO currency to symbol for display
+        currency_symbol_map = {
+            "USD": "$", "HKD": "HK$", "CNY": "¥", "JPY": "¥",
+            "KRW": "₩", "TWD": "NT$", "SGD": "S$", "AUD": "A$",
+            "CAD": "C$", "GBP": "£", "EUR": "€", "CHF": "CHF",
+        }
+        csym = currency_symbol_map.get(currency, "$")
+
         lines = [
             f"=== yfinance Market Data: {name} ({symbol}) ===",
             f"(Note: yfinance data may be delayed. Futu OpenD was unavailable.)",
             "",
             f"Sector: {sector} | Industry: {industry} | Country: {country}",
-            f"Market Cap: {_fmt_big(market_cap)}" if market_cap else "Market Cap: N/A",
+            f"Market Cap: {_fmt_big(market_cap, csym)}" if market_cap else "Market Cap: N/A",
             "",
             f"Current Price: {current_price} {currency}" if current_price else "Price: N/A",
         ]
@@ -238,11 +250,11 @@ def _fetch_yfinance_market_data(symbol: str) -> str:
         lines.append("\n[Key Metrics]")
         lines.append(f"P/E: {pe:.2f}" if pe else "P/E: N/A")
         lines.append(f"P/B: {pb:.2f}" if pb else "P/B: N/A")
-        lines.append(f"EPS: ${eps:.2f}" if eps else "EPS: N/A")
+        lines.append(f"EPS: {csym}{eps:.2f}" if eps else "EPS: N/A")
         lines.append(f"Dividend Yield: {dividend_yield * 100:.2f}%" if dividend_yield else "Dividend Yield: N/A")
         lines.append(f"Beta: {beta:.2f}" if beta else "Beta: N/A")
-        lines.append(f"52W High: ${high_52w:.2f}" if high_52w else "52W High: N/A")
-        lines.append(f"52W Low: ${low_52w:.2f}" if low_52w else "52W Low: N/A")
+        lines.append(f"52W High: {csym}{high_52w:.2f}" if high_52w else "52W High: N/A")
+        lines.append(f"52W Low: {csym}{low_52w:.2f}" if low_52w else "52W Low: N/A")
 
         if description:
             lines.append(f"\n{description}")

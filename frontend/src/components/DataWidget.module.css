@@ -527,6 +527,433 @@
   margin-top: 4px;
 }
 
+/* ── Capital Flow ─────────────────────────────────────────── */
+
+.capitalFlow {
+  padding-bottom: 10px;
+}
+
+.flowTable {
+  padding: 0;
+}
+
+.flowRow {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.flowRow:last-child {
+  border-bottom: none;
+}
+
+.flowRowTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.flowBoard {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.flowNorth {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.flowSouth {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--red);
+}
+
+.flowRowMid {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 2px;
+}
+
+.flowMetric {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.flowAdv {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.flowRowBot {
+  display: flex;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.flowGreen {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.flowRed {
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ── CN Sentiment: Sector Flow ────────────────────────────── */
+
+.cnSentiment {
+  padding-bottom: 10px;
+}
+
+.sectorFlowList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sectorFlowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sectorFlowRow:last-child {
+  border-bottom: none;
+}
+
+.sectorFlowName {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text);
+  flex: 1;
+}
+
+.sectorFlowPct {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  min-width: 48px;
+  text-align: right;
+}
+
+/* ── CN Sentiment: LHB ────────────────────────────────────── */
+
+.lhbRecent {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.lhbRecentTitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.lhbItem {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.lhbItem:last-child {
+  border-bottom: none;
+}
+
+.lhbItemDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.lhbItemClose {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.lhbItemReason {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── CN Sentiment: Top Flow Leaders ───────────────────────── */
+
+.leaderRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.leaderRow:last-child {
+  border-bottom: none;
+}
+
+.leaderCode {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  min-width: 54px;
+}
+
+.leaderName {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+}
+
+.leaderPrice {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.leaderNet {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--green);
+}
+
+/* ── US Fundamentals ──────────────────────────────────────────── */
+
+.usFundamentals {
+  padding-bottom: 10px;
+}
+
+.recBar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.recItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+}
+
+.recLabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.recCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.instRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.instRow:last-child {
+  border-bottom: none;
+}
+
+.instName {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.instShares {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.instPct {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.insiderRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.insiderRow:last-child {
+  border-bottom: none;
+}
+
+.insiderDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.insiderName {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.insiderTxn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.insiderValue {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.earningsRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.earningsRow:last-child {
+  border-bottom: none;
+}
+
+.earningsDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+}
+
+.earningsUpcoming {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--blue, #3b82f6);
+  padding: 1px 4px;
+  border: 1px solid var(--blue, #3b82f6);
+}
+
+.earningsPast {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.earningsEst,
+.earningsAct {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+}
+
+.filingRow {
+  display: flex;
+  gap: 6px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+}
+
+.filingRow:last-child {
+  border-bottom: none;
+}
+
+.filingLink {
+  cursor: pointer;
+}
+
+.filingLink:hover {
+  background: var(--bg-subtle);
+  margin: 0 -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.filingDate {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filingType {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent);
+  flex-shrink: 0;
+  min-width: 48px;
+}
+
+.filingTitle {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filingLink:hover .filingTitle {
+  color: var(--accent);
+}
+
 /* ── States ───────────────────────────────────────────────── */
 
 .skeletonWrap {

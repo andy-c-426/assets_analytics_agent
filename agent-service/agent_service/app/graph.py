@@ -13,6 +13,9 @@ from agent_service.app.tools.technicals import calculate_technicals
 from agent_service.app.tools.market_data import fetch_market_data
 from agent_service.app.tools.macro_research import fetch_macro_research
 from agent_service.app.tools.sentiment_news import fetch_sentiment_news
+from agent_service.app.tools.cn_market_tools import fetch_capital_flow, fetch_cn_market_sentiment
+from agent_service.app.tools.us_market_tools import fetch_us_fundamentals
+from agent_service.app.tools.market_utils import detect_market
 from agent_service.app.prompts import (
     PLAN_PROMPT,
     OBSERVE_PROMPT,
@@ -80,6 +83,21 @@ def _extract_fields(tool_name: str, result_text: str) -> dict:
         m = re.search(r"As of:\s*(\S.+)", result_text)
         if m:
             fields["as_of"] = m.group(1).strip()
+        # Currency extraction
+        if "Futu Real-Time" in result_text:
+            m = re.search(r"\(([A-Z]{2})\.\d+\)", result_text)
+            if m:
+                prefix = m.group(1)
+                currency_map = {
+                    "US": "USD", "HK": "HKD", "SH": "CNY", "SZ": "CNY",
+                    "JP": "JPY", "KR": "KRW", "TW": "TWD", "SG": "SGD",
+                    "AU": "AUD", "CA": "CAD", "UK": "GBP",
+                }
+                fields["currency"] = currency_map.get(prefix, "USD")
+        else:
+            m = re.search(r"Current Price:\s*[\d.]+\s*(\w+)", result_text)
+            if m:
+                fields["currency"] = m.group(1)
 
     elif tool_name == "fetch_macro_research":
         m = re.search(r"Macro & Sector Research\s*\(([^)]+)\)", result_text)
@@ -143,6 +161,40 @@ def _extract_fields(tool_name: str, result_text: str) -> dict:
         if m:
             fields["volatility"] = float(m.group(1))
 
+    elif tool_name == "fetch_capital_flow":
+        fields["source"] = "akshare"
+        m = re.search(r"Holdings:\s*[\d,]+\s*shares\s*\|\s*Value:\s*([\d.]+)", result_text)
+        if m:
+            fields["holding_value"] = float(m.group(1))
+        m = re.search(r"Holding %:\s*([\d.]+)%", result_text)
+        if m:
+            fields["holding_pct"] = float(m.group(1))
+        m = re.search(r"Holding Value Chg \(1d\):\s*([+-][\d.]+)", result_text)
+        if m:
+            fields["holding_chg_1d"] = float(m.group(1))
+
+    elif tool_name == "fetch_cn_market_sentiment":
+        fields["source"] = "akshare"
+        m = re.search(r"LHB Appearances:\s*(\d+)", result_text)
+        if m:
+            fields["lhb_count"] = int(m.group(1))
+
+    elif tool_name == "fetch_us_fundamentals":
+        fields["source"] = "yfinance"
+        m = re.search(r"Target Mean:\s*\$([\d.]+)\s*\(([+-][\d.]+)%", result_text)
+        if m:
+            fields["target_mean"] = float(m.group(1))
+            fields["target_premium"] = float(m.group(2))
+        m = re.search(r"percentage of shares held by institutions:\s*([\d.]+)%", result_text, re.IGNORECASE)
+        if m:
+            fields["inst_ownership_pct"] = float(m.group(1))
+        insider_count = len(re.findall(r"^\s+\[\d{4}-\d{2}-\d{2}\]", result_text, re.MULTILINE))
+        if insider_count:
+            fields["insider_txn_count"] = insider_count
+        m = re.search(r"Upcoming.*?(\d{4}-\d{2}-\d{2})", result_text)
+        if m:
+            fields["next_earnings_date"] = m.group(1)
+
     return fields
 
 
@@ -152,6 +204,9 @@ TOOLS_BY_NAME = {
     "fetch_sentiment_news": fetch_sentiment_news,
     "fetch_price_history": fetch_price_history,
     "calculate_technicals": calculate_technicals,
+    "fetch_capital_flow": fetch_capital_flow,
+    "fetch_cn_market_sentiment": fetch_cn_market_sentiment,
+    "fetch_us_fundamentals": fetch_us_fundamentals,
 }
 
 
@@ -245,8 +300,52 @@ def collect_core_data_node(state: AgentState) -> dict:
             })
 
     accumulated = existing + new_results
+
+    # Auto-collect supplementary data based on market region
+    try:
+        market = detect_market(symbol)
+        extras = []
+
+        # CN/HK: Stock Connect capital flow
+        if market["region"] in ("China A-Share", "Hong Kong"):
+            try:
+                cf_result = fetch_capital_flow.invoke({"symbol": symbol})
+                accumulated.append({
+                    "tool": "fetch_capital_flow",
+                    "args": {"symbol": symbol},
+                    "call_id": "fetch_capital_flow_core",
+                    "summary": cf_result.split("\n")[0] if cf_result else "Capital flow data",
+                    "status": "ok",
+                    "fields": _extract_fields("fetch_capital_flow", cf_result),
+                    "data": {"full_result": cf_result},
+                })
+                extras.append("capital flow")
+            except Exception:
+                pass
+
+        # US: Fundamentals (analyst consensus, insider trades, earnings, etc.)
+        if market["region"] == "United States":
+            try:
+                us_result = fetch_us_fundamentals.invoke({"symbol": symbol})
+                accumulated.append({
+                    "tool": "fetch_us_fundamentals",
+                    "args": {"symbol": symbol},
+                    "call_id": "fetch_us_fundamentals_core",
+                    "summary": us_result.split("\n")[0] if us_result else "US fundamentals data",
+                    "status": "ok",
+                    "fields": _extract_fields("fetch_us_fundamentals", us_result),
+                    "data": {"full_result": us_result},
+                })
+                extras.append("US fundamentals")
+            except Exception:
+                pass
+
+        if extras:
+            steps[-1]["detail"] = f"Collected {len(new_results)} core + {', '.join(extras)}"
+    except Exception:
+        pass
+
     steps[-1]["status"] = "done"
-    steps[-1]["detail"] = f"Collected {len(new_results)} core data source(s)"
 
     return {
         "tool_results": accumulated,
@@ -627,7 +726,12 @@ def synthesize_node(state: AgentState) -> dict:
     if cached and cached.get("asset_data") == asset_data_str and cached.get("price_history") == price_history_str:
         dashboard = cached["dashboard"]
     else:
-        analytics = compute_enriched_analytics(symbol, asset_data_str, price_history_str, language)
+        from agent_service.app.tools.market_utils import detect_market as _dm
+        try:
+            market_info = _dm(symbol)
+        except Exception:
+            market_info = None
+        analytics = compute_enriched_analytics(symbol, asset_data_str, price_history_str, language, market_info)
         dashboard = format_analytics_dashboard(analytics, symbol, language)
         cache.set(cache_key, {
             "asset_data": asset_data_str,
@@ -649,6 +753,7 @@ def synthesize_node(state: AgentState) -> dict:
         enriched_data=enriched_data,
         current_date=_now(),
         language=language,
+        market_info=market_info,
     )
 
     steps[-1]["status"] = "done"

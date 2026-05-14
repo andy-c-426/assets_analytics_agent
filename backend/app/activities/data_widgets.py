@@ -34,3 +34,30 @@ async def get_sentiment_news(symbol: str, finnhub_api_key: str | None = Query(de
         resp = await client.get(f"{AGENT_SERVICE_URL}/sentiment-news/{symbol}{params}")
         resp.raise_for_status()
         return resp.json()
+
+
+@router.get("/api/assets/{symbol}/capital-flow")
+async def get_capital_flow(symbol: str):
+    """Proxy to agent service: Stock Connect capital flow (CN/HK only)."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{AGENT_SERVICE_URL}/capital-flow/{symbol}")
+        resp.raise_for_status()
+        return resp.json()
+
+
+@router.get("/api/assets/{symbol}/cn-sentiment")
+async def get_cn_sentiment(symbol: str):
+    """Proxy to agent service: CN/HK market sentiment (CN/HK only)."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{AGENT_SERVICE_URL}/cn-sentiment/{symbol}")
+        resp.raise_for_status()
+        return resp.json()
+
+
+@router.get("/api/assets/{symbol}/us-fundamentals")
+async def get_us_fundamentals(symbol: str):
+    """Proxy to agent service: US fundamentals (US only)."""
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(f"{AGENT_SERVICE_URL}/us-fundamentals/{symbol}")
+        resp.raise_for_status()
+        return resp.json()

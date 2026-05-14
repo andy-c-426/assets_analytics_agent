@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getAssetDetail, getMarketData, getMacroResearch, getSentimentNews } from '../api/client';
+import { getAssetDetail, getMarketData, getMacroResearch, getSentimentNews, getCapitalFlow, getCnSentiment, getUsFundamentals } from '../api/client';
 import AssetDetailComponent from '../components/AssetDetail';
 import PriceChart from '../components/PriceChart';
 import NewsList from '../components/NewsList';
@@ -17,6 +17,9 @@ type WidgetData = {
   marketData: string | null;
   macroResearch: string | null;
   sentimentNews: string | null;
+  capitalFlow: string | null;
+  cnSentiment: string | null;
+  usFundamentals: string | null;
 };
 
 export default function AssetPage() {
@@ -27,6 +30,9 @@ export default function AssetPage() {
     marketData: null,
     macroResearch: null,
     sentimentNews: null,
+    capitalFlow: null,
+    cnSentiment: null,
+    usFundamentals: null,
   });
   const [widgetLoading, setWidgetLoading] = useState(true);
   const [loading, setLoading] = useState(true);
@@ -50,12 +56,22 @@ export default function AssetPage() {
     if (widgetFetched.current !== symbol) {
       widgetFetched.current = symbol;
       setWidgetLoading(true);
-      Promise.all([
+
+      const isCnHk = /\.(SZ|SH|SS|HK)$/i.test(symbol);
+      const nonUSSuffixes = /\.(SZ|SH|SS|HK|T|JP|KS|KQ|TW|TWO|TO|V|SI|AX|L|DE|PA|AS|BR|MI|MC|SW|F|BE|VI|LS|ST|CO|HE)$/i;
+      const isUS = !nonUSSuffixes.test(symbol);
+
+      const fetchers: Promise<string | null>[] = [
         getMarketData(symbol).then((r) => r.data).catch(() => null),
         getMacroResearch(symbol).then((r) => r.data).catch(() => null),
         getSentimentNews(symbol, finnhubKey).then((r) => r.data).catch(() => null),
-      ]).then(([marketData, macroResearch, sentimentNews]) => {
-        setWidgetData({ marketData, macroResearch, sentimentNews });
+        isCnHk ? getCapitalFlow(symbol).then((r) => r.data).catch(() => null) : Promise.resolve(null),
+        isCnHk ? getCnSentiment(symbol).then((r) => r.data).catch(() => null) : Promise.resolve(null),
+        isUS ? getUsFundamentals(symbol).then((r) => r.data).catch(() => null) : Promise.resolve(null),
+      ];
+
+      Promise.all(fetchers).then(([marketData, macroResearch, sentimentNews, capitalFlow, cnSentiment, usFundamentals]) => {
+        setWidgetData({ marketData, macroResearch, sentimentNews, capitalFlow, cnSentiment, usFundamentals });
       }).finally(() => setWidgetLoading(false));
     }
   }, [symbol]);
@@ -69,6 +85,8 @@ export default function AssetPage() {
   if (widgetData.marketData) prefetchedData.fetch_market_data = widgetData.marketData;
   if (widgetData.macroResearch) prefetchedData.fetch_macro_research = widgetData.macroResearch;
   if (widgetData.sentimentNews) prefetchedData.fetch_sentiment_news = widgetData.sentimentNews;
+  if (widgetData.capitalFlow) prefetchedData.fetch_capital_flow = widgetData.capitalFlow;
+  if (widgetData.usFundamentals) prefetchedData.fetch_us_fundamentals = widgetData.usFundamentals;
 
   if (loading) {
     return (
@@ -104,6 +122,15 @@ export default function AssetPage() {
       <div className={styles.widgetGrid}>
         <DataWidget category="macro_research" data={widgetData.macroResearch} loading={widgetLoading} />
         <DataWidget category="sentiment_news" data={widgetData.sentimentNews} loading={widgetLoading} />
+        {widgetData.capitalFlow !== null && (
+          <DataWidget category="capital_flow" data={widgetData.capitalFlow} loading={false} />
+        )}
+        {widgetData.cnSentiment !== null && (
+          <DataWidget category="cn_sentiment" data={widgetData.cnSentiment} loading={false} />
+        )}
+        {widgetData.usFundamentals !== null && (
+          <DataWidget category="us_fundamentals" data={widgetData.usFundamentals} loading={false} />
+        )}
       </div>
 
       <NewsList news={asset.news.slice(0, 3)} />

@@ -8,7 +8,10 @@ import math
 from datetime import datetime, timezone
 
 
-def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str, language: str = "en") -> dict:
+def compute_enriched_analytics(
+    symbol: str, asset_data: str, price_history: str, language: str = "en",
+    market_info: dict | None = None,
+) -> dict:
     """Parse raw tool results and compute Bloomberg-style derived metrics.
 
     Returns a dict keyed by category, each containing pre-formatted markdown sections
@@ -26,6 +29,20 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
     info = _parse_asset_data(asset_data)
     prices = _parse_price_history(price_history)
 
+    # Determine thresholds and currency from market detection
+    if market_info is None:
+        from agent_service.app.tools.market_utils import detect_market
+        try:
+            market_info = detect_market(symbol)
+        except Exception:
+            market_info = {"currency_symbol": "$", "pe_thresholds": {"low": 15, "mid": 25, "high": 40}}
+
+    thresholds = market_info.get("pe_thresholds", {"low": 15, "mid": 25, "high": 40})
+    csym = market_info.get("currency_symbol", "$")
+    pe_low = thresholds.get("low", 15)
+    pe_mid = thresholds.get("mid", 25)
+    pe_high = thresholds.get("high", 40)
+
     # ── Valuation ──────────────────────────────────────────────
     pe = info.get("pe")
     pb = info.get("pb")
@@ -37,20 +54,20 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
             metrics["valuation"].append(
                 "P/E: Negative (unprofitable)" if not is_zh else "市盈率: 负值（亏损）"
             )
-        elif pe < 15:
+        elif pe < pe_low:
             metrics["valuation"].append(
-                f"P/E: {pe:.1f} (Value territory — below 15x)" if not is_zh
-                else f"市盈率: {pe:.1f}（价值区间 — 低于 15 倍）"
+                f"P/E: {pe:.1f} (Value territory — below {pe_low}x)" if not is_zh
+                else f"市盈率: {pe:.1f}（价值区间 — 低于 {pe_low} 倍）"
             )
-        elif pe < 25:
+        elif pe < pe_mid:
             metrics["valuation"].append(
-                f"P/E: {pe:.1f} (Fair value — 15-25x range)" if not is_zh
-                else f"市盈率: {pe:.1f}（合理估值 — 15-25 倍区间）"
+                f"P/E: {pe:.1f} (Fair value — {pe_low}-{pe_mid}x range)" if not is_zh
+                else f"市盈率: {pe:.1f}（合理估值 — {pe_low}-{pe_mid} 倍区间）"
             )
         else:
             metrics["valuation"].append(
-                f"P/E: {pe:.1f} (Growth premium — above 25x)" if not is_zh
-                else f"市盈率: {pe:.1f}（成长溢价 — 高于 25 倍）"
+                f"P/E: {pe:.1f} (Growth premium — above {pe_mid}x)" if not is_zh
+                else f"市盈率: {pe:.1f}（成长溢价 — 高于 {pe_mid} 倍）"
             )
 
     if pb is not None:
@@ -72,7 +89,7 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
 
     if mkt_cap is not None:
         label = "Market Cap" if not is_zh else "总市值"
-        metrics["valuation"].append(f"{label}: {_fmt_cap(mkt_cap)}")
+        metrics["valuation"].append(f"{label}: {_fmt_cap(mkt_cap, csym)}")
 
     # ── Momentum ───────────────────────────────────────────────
     if prices and len(prices) >= 20:
@@ -83,9 +100,9 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
         rsi = _compute_rsi(prices, 14)
 
         if is_zh:
-            metrics["momentum"].append(f"当前价格: ${current:.2f}")
+            metrics["momentum"].append(f"当前价格: {csym}{current:.2f}")
         else:
-            metrics["momentum"].append(f"Current Price: ${current:.2f}")
+            metrics["momentum"].append(f"Current Price: {csym}{current:.2f}")
 
         if "1w" in returns:
             if is_zh:
@@ -152,14 +169,14 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
         pct_from_low = ((price - low_52w) / low_52w) * 100
         if is_zh:
             metrics["risk"].append(
-                f"52 周区间: ${low_52w:.2f} – ${high_52w:.2f}"
+                f"52 周区间: {csym}{low_52w:.2f} – {csym}{high_52w:.2f}"
             )
             metrics["risk"].append(
                 f"位置: 距高点 {pct_from_high:+.1f}%，距低点 {pct_from_low:+.1f}%"
             )
         else:
             metrics["risk"].append(
-                f"52-Week Range: ${low_52w:.2f} – ${high_52w:.2f}"
+                f"52-Week Range: {csym}{low_52w:.2f} – {csym}{high_52w:.2f}"
             )
             metrics["risk"].append(
                 f"Position: {pct_from_high:+.1f}% from high, {pct_from_low:+.1f}% from low"
@@ -183,9 +200,9 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
     eps = info.get("eps")
     if eps is not None and eps > 0:
         if is_zh:
-            metrics["profitability"].append(f"每股收益 (TTM): ${eps:.2f}")
+            metrics["profitability"].append(f"每股收益 (TTM): {csym}{eps:.2f}")
         else:
-            metrics["profitability"].append(f"EPS (TTM): ${eps:.2f}")
+            metrics["profitability"].append(f"EPS (TTM): {csym}{eps:.2f}")
 
     div_yield = info.get("dividend_yield")
     if div_yield is not None:
@@ -194,16 +211,16 @@ def compute_enriched_analytics(symbol: str, asset_data: str, price_history: str,
         else:
             metrics["profitability"].append(f"Dividend Yield: {div_yield * 100:.2f}%")
 
-    # Market cap context
+    # Market cap context (with currency symbol)
     if mkt_cap is not None:
         if mkt_cap >= 200e9:
-            label = "Size: Mega-cap (≥ $200B)" if not is_zh else "规模: 超大盘（≥ 2000 亿美元）"
+            label = f"Size: Mega-cap (≥ {csym}200B)" if not is_zh else f"规模: 超大盘（≥ 2000 亿）"
         elif mkt_cap >= 10e9:
-            label = "Size: Large-cap ($10B–$200B)" if not is_zh else "规模: 大盘（100 亿 – 2000 亿美元）"
+            label = f"Size: Large-cap ({csym}10B–{csym}200B)" if not is_zh else f"规模: 大盘（100 亿 – 2000 亿）"
         elif mkt_cap >= 2e9:
-            label = "Size: Mid-cap ($2B–$10B)" if not is_zh else "规模: 中盘（20 亿 – 100 亿美元）"
+            label = f"Size: Mid-cap ({csym}2B–{csym}10B)" if not is_zh else f"规模: 中盘（20 亿 – 100 亿）"
         else:
-            label = "Size: Small-cap (< $2B)" if not is_zh else "规模: 小盘（< 20 亿美元）"
+            label = f"Size: Small-cap (< {csym}2B)" if not is_zh else f"规模: 小盘（< 20 亿）"
         metrics["profitability"].append(label)
 
     return metrics
@@ -397,11 +414,11 @@ def _daily_volatility(prices: list[float]) -> float | None:
     return math.sqrt(variance) * math.sqrt(252) * 100
 
 
-def _fmt_cap(n: float) -> str:
+def _fmt_cap(n: float, currency_symbol: str = "$") -> str:
     if n >= 1e12:
-        return f"${n / 1e12:.2f}T"
+        return f"{currency_symbol}{n / 1e12:.2f}T"
     if n >= 1e9:
-        return f"${n / 1e9:.2f}B"
+        return f"{currency_symbol}{n / 1e9:.2f}B"
     if n >= 1e6:
-        return f"${n / 1e6:.2f}M"
-    return f"${n:,.0f}"
+        return f"{currency_symbol}{n / 1e6:.2f}M"
+    return f"{currency_symbol}{n:,.0f}"

@@ -60,6 +60,9 @@ const translations: Record<string, Record<Lang, string>> = {
   'widget.marketData': { en: 'Market Data', 'zh-CN': '市场基础数据' },
   'widget.macroResearch': { en: 'Macro & Research', 'zh-CN': '宏观与研报' },
   'widget.sentimentNews': { en: 'Sentiment & News', 'zh-CN': '情绪与舆情' },
+  'widget.capitalFlow': { en: 'Capital Flow (沪深港通)', 'zh-CN': '资金流向 (沪深港通)' },
+  'widget.cnSentiment': { en: 'CN Market Sentiment', 'zh-CN': 'A股市场情绪' },
+  'widget.usFundamentals': { en: 'US Fundamentals', 'zh-CN': '美股基本面' },
   'widget.unavailable': { en: 'Data not available', 'zh-CN': '数据不可用' },
 
   'lang.en': { en: 'English', 'zh-CN': 'English' },

@@ -11,6 +11,7 @@ from agent_service.app import events
 from agent_service.app.tools.market_data import fetch_market_data
 from agent_service.app.tools.macro_research import fetch_macro_research
 from agent_service.app.tools.sentiment_news import fetch_sentiment_news
+from agent_service.app.tools.cn_market_tools import fetch_capital_flow, fetch_cn_market_sentiment
 
 
 router = APIRouter()
@@ -44,6 +45,28 @@ async def macro_research(symbol: str):
 async def sentiment_news(symbol: str, finnhub_api_key: str | None = None):
     """Fetch sentiment news for a symbol."""
     result = fetch_sentiment_news.invoke({"symbol": symbol, "finnhub_api_key": finnhub_api_key})
+    return {"symbol": symbol, "data": result}
+
+
+@router.get("/capital-flow/{symbol}")
+async def capital_flow(symbol: str):
+    """Fetch Stock Connect capital flow for CN/HK markets."""
+    result = fetch_capital_flow.invoke({"symbol": symbol})
+    return {"symbol": symbol, "data": result}
+
+
+@router.get("/cn-sentiment/{symbol}")
+async def cn_sentiment(symbol: str):
+    """Fetch CN/HK market sentiment and Dragon Tiger Board data."""
+    result = fetch_cn_market_sentiment.invoke({"symbol": symbol})
+    return {"symbol": symbol, "data": result}
+
+
+@router.get("/us-fundamentals/{symbol}")
+async def us_fundamentals(symbol: str):
+    """Fetch US fundamentals: analyst consensus, insider, institutional, earnings, filings."""
+    from agent_service.app.tools.us_market_tools import fetch_us_fundamentals
+    result = fetch_us_fundamentals.invoke({"symbol": symbol})
     return {"symbol": symbol, "data": result}
 
 

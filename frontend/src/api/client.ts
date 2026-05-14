@@ -59,6 +59,18 @@ export function getSentimentNews(symbol: string, finnhubKey?: string): Promise<D
   return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/sentiment-news${qs ? `?${qs}` : ''}`);
 }
 
+export function getCapitalFlow(symbol: string): Promise<DataWidgetResult> {
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/capital-flow`);
+}
+
+export function getCnSentiment(symbol: string): Promise<DataWidgetResult> {
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/cn-sentiment`);
+}
+
+export function getUsFundamentals(symbol: string): Promise<DataWidgetResult> {
+  return get<DataWidgetResult>(`/assets/${encodeURIComponent(symbol)}/us-fundamentals`);
+}
+
 export function analyzeAsset(
   symbol: string,
   config: AnalysisRequest

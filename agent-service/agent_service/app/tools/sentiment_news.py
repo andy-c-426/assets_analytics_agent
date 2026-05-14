@@ -128,16 +128,23 @@ def _fetch_yfinance_news(symbol: str) -> str | None:
 
 
 def _fetch_web_news(symbol: str) -> str:
-    """Tertiary: DuckDuckGo web search for news."""
+    """Tertiary: DuckDuckGo web search for news (market-aware)."""
     try:
         try:
             from ddgs import DDGS
         except ImportError:
             from duckduckgo_search import DDGS  # pre-rename package
 
+        # Build market-aware query
+        from agent_service.app.tools.market_utils import detect_market
+        market = detect_market(symbol)
+        s = symbol.strip().upper()
+        region = market["region"]
+        query = f"{s} stock news {region}" if region != "United States" else f"{s} stock news"
+
         results = []
         with DDGS() as ddgs:
-            for item in ddgs.news(f"{symbol} stock news", max_results=6):
+            for item in ddgs.news(query, max_results=6):
                 results.append(item)
 
         if not results:

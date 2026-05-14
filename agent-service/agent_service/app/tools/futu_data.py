@@ -1,5 +1,7 @@
 from langchain_core.tools import tool
 
+from agent_service.app.tools.market_utils import detect_market
+
 
 def _resolve_futu_codes(symbol: str) -> list[str]:
     """Convert a ticker into candidate Futu codes to try (MARKET.CODE format)."""
@@ -9,21 +11,11 @@ def _resolve_futu_codes(symbol: str) -> list[str]:
     if "." in s:
         return [s]
 
-    # Common single-ticker → known market
-    _known = {
-        "AAPL": "US", "MSFT": "US", "GOOGL": "US", "AMZN": "US", "TSLA": "US",
-        "META": "US", "NVDA": "US", "NFLX": "US", "BRK.A": "US", "BRK.B": "US",
-        "JPM": "US", "V": "US", "WMT": "US", "JNJ": "US", "PG": "US", "XOM": "US",
-        "BAC": "US", "MA": "US", "DIS": "US", "ADBE": "US", "CRM": "US",
-        "00700": "HK", "09988": "HK", "09618": "HK", "03690": "HK",
-        "00388": "HK", "02318": "HK", "00005": "HK", "00941": "HK",
-        "01810": "HK", "01398": "HK", "03988": "HK", "01299": "HK",
-    }
-    if s in _known:
-        return [f"{_known[s]}.{s}"]
+    market = detect_market(symbol)
+    prefixes = market.get("futu_prefixes", ["US", "HK"])
 
     stripped = s.lstrip("0") or "0"
-    return [f"US.{s}", f"HK.{stripped}"]
+    return [f"{p}.{stripped}" for p in prefixes]
 
 
 def _get_quote_context():
@@ -57,6 +49,15 @@ def _snapshot_to_text(code: str, row) -> str:
             return float(val)
         except (ValueError, TypeError):
             return None
+
+    # Derive currency symbol from Futu code prefix
+    prefix = code.split(".")[0] if "." in code else ""
+    currency_map = {
+        "US": "$", "HK": "HK$", "SH": "¥", "SZ": "¥",
+        "JP": "¥", "KR": "₩", "TW": "NT$", "SG": "S$",
+        "AU": "A$", "CA": "C$", "UK": "£",
+    }
+    currency_symbol = currency_map.get(prefix, "$")
 
     name = _v("name") or code
     update = _v("update_time")
@@ -123,7 +124,7 @@ def _snapshot_to_text(code: str, row) -> str:
         val = _vf(f)
         if val is not None:
             if "market" in f.lower():
-                lines.append(f"  {label}: {_fmt_big(val)}")
+                lines.append(f"  {label}: {_fmt_big(val, currency_symbol)}")
             elif "ey" in f:
                 lines.append(f"  {label}: {val:.2f}%")
             else:
@@ -141,7 +142,7 @@ def _snapshot_to_text(code: str, row) -> str:
             if f == "dividend_ratio_ttm":
                 lines.append(f"  {label}: {val:.2f}%")
             elif f in ("net_profit", "net_asset"):
-                lines.append(f"  {label}: {_fmt_big(val)}")
+                lines.append(f"  {label}: {_fmt_big(val, currency_symbol)}")
             elif f == "issued_shares":
                 lines.append(f"  {label}: {val:,.0f}")
             else:
@@ -206,14 +207,14 @@ def _basicinfo_to_text(code: str, row) -> str:
     return "\n".join(lines)
 
 
-def _fmt_big(n: float) -> str:
+def _fmt_big(n: float, currency_symbol: str = "$") -> str:
     if abs(n) >= 1e12:
-        return f"${n / 1e12:.2f}T"
+        return f"{currency_symbol}{n / 1e12:.2f}T"
     if abs(n) >= 1e9:
-        return f"${n / 1e9:.2f}B"
+        return f"{currency_symbol}{n / 1e9:.2f}B"
     if abs(n) >= 1e6:
-        return f"${n / 1e6:.2f}M"
-    return f"${n:,.0f}"
+        return f"{currency_symbol}{n / 1e6:.2f}M"
+    return f"{currency_symbol}{n:,.0f}"
 
 
 @tool
