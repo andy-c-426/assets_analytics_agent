@@ -7,6 +7,7 @@ Secondary: yfinance — delayed but comprehensive profile, metrics, index data
 from langchain_core.tools import tool
 
 from agent_service.app.tools.market_utils import detect_market
+from agent_service.app.state import ToolOutput
 
 
 # ── Futu helpers (reused from futu_data.py) ─────────────────────
@@ -23,8 +24,8 @@ def _resolve_futu_codes(symbol: str) -> list[str]:
     return [f"{p}.{stripped}" for p in prefixes]
 
 
-def _try_futu(symbol: str) -> str | None:
-    """Try Futu OpenD for real-time data. Returns result string or None."""
+def _try_futu(symbol: str) -> tuple[str, dict] | None:
+    """Try Futu OpenD for real-time data. Returns (text, fields) or None."""
     try:
         from futu import OpenQuoteContext
         ctx = OpenQuoteContext(host="127.0.0.1", port=11111)
@@ -36,11 +37,14 @@ def _try_futu(symbol: str) -> str | None:
     try:
         codes = _resolve_futu_codes(symbol)
         snapshot_text = None
+        snapshot_fields: dict = {}
 
         for code in codes:
             ret, data = ctx.get_market_snapshot([code])
             if ret == 0 and data is not None and not data.empty:
-                snapshot_text = _format_snapshot(code, data.iloc[0])
+                row = data.iloc[0]
+                snapshot_text = _format_snapshot(code, row)
+                snapshot_fields = _extract_snapshot_fields(code, row)
                 break
 
         if snapshot_text is None:
@@ -48,6 +52,7 @@ def _try_futu(symbol: str) -> str | None:
             return None
 
         parts = [snapshot_text]
+        fields = dict(snapshot_fields)
 
         market_str = codes[0].split(".")[0] if snapshot_text else ""
         from futu import Market
@@ -63,13 +68,83 @@ def _try_futu(symbol: str) -> str | None:
                 parts.append(_format_basicinfo(codes[0], info.iloc[0]))
 
         ctx.close()
-        return "\n\n".join(parts)
+        return "\n\n".join(parts), fields
     except Exception:
         try:
             ctx.close()
         except Exception:
             pass
         return None
+
+
+def _extract_snapshot_fields(code: str, row) -> dict:
+    """Extract structured fields from a Futu market snapshot row."""
+    import pandas as pd
+
+    def _vf(key):
+        val = row.get(key)
+        if val is None or (isinstance(val, float) and pd.isna(val)):
+            return None
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return None
+
+    prefix = code.split(".")[0] if "." in code else ""
+    currency_map = {
+        "US": "USD", "HK": "HKD", "SH": "CNY", "SZ": "CNY",
+        "JP": "JPY", "KR": "KRW", "TW": "TWD", "SG": "SGD",
+        "AU": "AUD", "CA": "CAD", "UK": "GBP",
+    }
+    currency = currency_map.get(prefix, "USD")
+
+    last = _vf("last_price")
+    prev = _vf("prev_close_price")
+    change = last - prev if (last is not None and prev is not None) else None
+    change_pct = (change / prev * 100) if (change is not None and prev and prev != 0) else None
+
+    fields: dict = {
+        "source": "futu",
+        "currency": currency,
+    }
+    if last is not None:
+        fields["current_price"] = last
+    if change is not None:
+        fields["change"] = change
+    if change_pct is not None:
+        fields["change_pct"] = change_pct
+    pe = _vf("pe_ratio") or _vf("pe_ttm_ratio")
+    if pe is not None:
+        fields["pe"] = pe
+    pb = _vf("pb_ratio")
+    if pb is not None:
+        fields["pb"] = pb
+    eps = _vf("earning_per_share")
+    if eps is not None:
+        fields["eps"] = eps
+    mc = _vf("total_market_val")
+    if mc is not None:
+        if mc >= 1e12:
+            fields["market_cap"] = f"{mc / 1e12:.2f}T"
+        elif mc >= 1e9:
+            fields["market_cap"] = f"{mc / 1e9:.2f}B"
+        elif mc >= 1e6:
+            fields["market_cap"] = f"{mc / 1e6:.2f}M"
+        else:
+            fields["market_cap"] = f"{mc:,.0f}"
+    high52 = _vf("highest52weeks_price")
+    if high52 is not None:
+        fields["52w_high"] = high52
+    low52 = _vf("lowest52weeks_price")
+    if low52 is not None:
+        fields["52w_low"] = low52
+    div_yield = _vf("dividend_ratio_ttm")
+    if div_yield is not None:
+        fields["dividend_yield"] = div_yield
+    volume = _vf("volume")
+    if volume is not None:
+        fields["volume"] = volume
+    return fields
 
 
 def _format_snapshot(code: str, row) -> str:
@@ -192,8 +267,10 @@ def _fmt_big(n: float, currency_symbol: str = "$") -> str:
 
 # ── yfinance fallback ──────────────────────────────────────────
 
-def _fetch_yfinance_market_data(symbol: str) -> str:
-    """Fallback: yfinance for profile, price, metrics + relevant index data."""
+def _fetch_yfinance_market_data(symbol: str) -> tuple[str, dict]:
+    """Fallback: yfinance for profile, price, metrics + relevant index data.
+    Returns (text, fields) tuple.
+    """
     import yfinance as yf
 
     try:
@@ -201,7 +278,7 @@ def _fetch_yfinance_market_data(symbol: str) -> str:
         info = ticker.get_info()
 
         if not info or info.get("symbol") is None:
-            return f"No data found for symbol: {symbol}"
+            return f"No data found for symbol: {symbol}", {}
 
         name = info.get("shortName") or info.get("longName") or symbol
         sector = info.get("sector", "N/A")
@@ -259,6 +336,40 @@ def _fetch_yfinance_market_data(symbol: str) -> str:
         if description:
             lines.append(f"\n{description}")
 
+        # Build structured fields
+        fields: dict = {
+            "source": "yfinance",
+            "currency": currency,
+            "sector": sector,
+            "industry": industry,
+            "country": country,
+        }
+        if current_price is not None:
+            fields["current_price"] = current_price
+        if pe is not None:
+            fields["pe"] = pe
+        if pb is not None:
+            fields["pb"] = pb
+        if eps is not None:
+            fields["eps"] = eps
+        if dividend_yield is not None:
+            fields["dividend_yield"] = dividend_yield
+        if beta is not None:
+            fields["beta"] = beta
+        if high_52w is not None:
+            fields["52w_high"] = high_52w
+        if low_52w is not None:
+            fields["52w_low"] = low_52w
+        if market_cap is not None:
+            if market_cap >= 1e12:
+                fields["market_cap"] = f"{market_cap / 1e12:.2f}T"
+            elif market_cap >= 1e9:
+                fields["market_cap"] = f"{market_cap / 1e9:.2f}B"
+            elif market_cap >= 1e6:
+                fields["market_cap"] = f"{market_cap / 1e6:.2f}M"
+            else:
+                fields["market_cap"] = f"{market_cap:,.0f}"
+
         # Fetch a relevant market index for context
         market = info.get("market", "").lower()
         exchange = info.get("exchange", "").lower()
@@ -279,9 +390,9 @@ def _fetch_yfinance_market_data(symbol: str) -> str:
             except Exception:
                 pass
 
-        return "\n".join(lines)
+        return "\n".join(lines), fields
     except Exception as e:
-        return f"Error fetching market data for {symbol}: {e}"
+        return f"Error fetching market data for {symbol}: {e}", {}
 
 
 def _pick_index(market: str, exchange: str, country: str) -> str | None:
@@ -316,7 +427,7 @@ def _pick_index(market: str, exchange: str, country: str) -> str | None:
 # ── Main tool ──────────────────────────────────────────────────
 
 @tool
-def fetch_market_data(symbol: str) -> str:
+def fetch_market_data(symbol: str) -> ToolOutput:
     """市场基础数据 — Structured market data for a ticker.
 
     Fetches price, volume, valuation, fundamentals, and 52-week range data.
@@ -331,7 +442,21 @@ def fetch_market_data(symbol: str) -> str:
     # Primary: Futu OpenD
     futu_result = _try_futu(symbol)
     if futu_result:
-        return futu_result
+        text, fields = futu_result
+        return {
+            "text": text,
+            "fields": fields,
+            "source": "futu",
+            "freshness": "realtime",
+            "warnings": [],
+        }
 
     # Secondary: yfinance
-    return _fetch_yfinance_market_data(symbol)
+    text, fields = _fetch_yfinance_market_data(symbol)
+    return {
+        "text": text,
+        "fields": fields,
+        "source": "yfinance",
+        "freshness": "delayed",
+        "warnings": ["Futu unavailable — using delayed yfinance data"],
+    }

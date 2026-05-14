@@ -6,7 +6,11 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from agent_service.app.state import AgentState
-from agent_service.app.graph import build_graph, _extract_fields
+from agent_service.app.graph import build_graph, _extract_fields, _make_tool_result
+
+
+# Compile once at module load — reused across all requests
+_compiled_graph = build_graph().compile()
 from agent_service.app import events
 from agent_service.app.tools.market_data import fetch_market_data
 from agent_service.app.tools.macro_research import fetch_macro_research
@@ -27,11 +31,18 @@ class AnalyzeRequest(BaseModel):
     prefetched_data: dict[str, str] | None = None
 
 
+def _extract_text(result) -> str:
+    """Extract display text from a tool result (handles both str and ToolOutput)."""
+    if isinstance(result, dict) and "text" in result:
+        return result["text"]
+    return str(result)
+
+
 @router.get("/market-data/{symbol}")
 async def market_data(symbol: str):
     """Fetch structured market data for a symbol."""
     result = fetch_market_data.invoke({"symbol": symbol})
-    return {"symbol": symbol, "data": result}
+    return {"symbol": symbol, "data": _extract_text(result)}
 
 
 @router.get("/macro-research/{symbol}")
@@ -85,27 +96,15 @@ async def analyze(symbol: str, body: AnalyzeRequest):
 
 async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[str, None]:
     try:
-        graph = build_graph()
-        compiled = graph.compile()
-
         # Build pre-populated tool_results from pre-fetched data
         prefetched = body.prefetched_data or {}
         pre_tool_results = []
         if prefetched:
             for tool_name, data in prefetched.items():
-                summary_lines = data.split("\n")
-                summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
-                if len(summary) > 150:
-                    summary = summary[:147] + "..."
-                pre_tool_results.append({
-                    "tool": tool_name,
-                    "args": {"symbol": symbol},
-                    "call_id": f"{tool_name}_cached",
-                    "summary": summary,
-                    "status": "ok",
-                    "fields": _extract_fields(tool_name, data),
-                    "data": {"full_result": data},
-                })
+                pre_tool_results.append(_make_tool_result(
+                    tool_name, {"symbol": symbol}, data, True,
+                    call_id=f"{tool_name}_cached", cached=True,
+                ))
         if prefetched:
             yield events.step_started("planning", f"Using cached data for {symbol}...")
         else:
@@ -133,7 +132,7 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
 
         emitted_results = len(pre_tool_results)
 
-        async for chunk in compiled.astream(initial_state, stream_mode="updates"):
+        async for chunk in _compiled_graph.astream(initial_state, stream_mode="updates"):
             for node_name, updates in chunk.items():
                 steps = updates.get("steps", [])
                 tool_results = updates.get("tool_results", [])

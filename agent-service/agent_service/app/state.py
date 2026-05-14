@@ -23,6 +23,23 @@ class ToolResult(TypedDict):
     status: NotRequired[str]   # "ok" | "error"
     fields: NotRequired[dict]  # machine-readable structured fields
     data: NotRequired[dict]
+    source: NotRequired[str]     # "futu" | "yfinance" | "finnhub" | "web_search" | "akshare" | "unknown"
+    freshness: NotRequired[str]  # "realtime" | "delayed" | "cached" | "unknown"
+    warnings: NotRequired[list[str]]  # human-readable degradation/failure notes
+
+
+class ToolOutput(TypedDict):
+    """Structured return from a tool function.
+
+    Tools should return this instead of a raw string so the graph layer
+    can access both the human-readable text and machine-readable fields
+    without regex parsing.
+    """
+    text: str
+    fields: dict
+    source: NotRequired[str]
+    freshness: NotRequired[str]
+    warnings: NotRequired[list[str]]
 
 
 class AgentState(TypedDict):
@@ -37,4 +54,5 @@ class AgentState(TypedDict):
     final_report: str | None
     next_action: str              # "plan" | "execute_tools" | "observe" | "synthesize" | "done"
     iteration_count: NotRequired[int]
+    core_retries: NotRequired[int]
     error: str | None

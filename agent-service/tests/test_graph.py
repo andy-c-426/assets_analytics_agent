@@ -212,6 +212,42 @@ def test_decide_next_max_iterations_forces_synthesize():
     assert decide_next(state) == "synthesize"
 
 
+def test_decide_next_allows_core_retry_at_max_iterations():
+    """Core data re-collection is allowed past MAX_ITERATIONS."""
+    state: AgentState = {
+        "symbol": "AAPL",
+        "llm_config": {"provider": "claude", "model": "c", "api_key": "k"},
+        "plan": [],
+        "tool_results": [],
+        "messages": [],
+        "steps": [],
+        "final_report": None,
+        "next_action": "collect_core_data",
+        "iteration_count": MAX_ITERATIONS,
+        "core_retries": 0,
+        "error": None,
+    }
+    assert decide_next(state) == "collect_core_data"
+
+
+def test_decide_next_blocks_core_retry_when_exhausted():
+    """Core data re-collection blocked when core_retries exhausted."""
+    state: AgentState = {
+        "symbol": "AAPL",
+        "llm_config": {"provider": "claude", "model": "c", "api_key": "k"},
+        "plan": [],
+        "tool_results": [],
+        "messages": [],
+        "steps": [],
+        "final_report": None,
+        "next_action": "collect_core_data",
+        "iteration_count": MAX_ITERATIONS,
+        "core_retries": 2,
+        "error": None,
+    }
+    assert decide_next(state) == "synthesize"
+
+
 def test_decide_next_allows_plan_under_max():
     state: AgentState = {
         "symbol": "AAPL",

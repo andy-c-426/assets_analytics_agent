@@ -52,8 +52,8 @@ def _search_macro(symbol: str) -> str:
                         )
                     lines.append("")
                     all_results.extend(results)
-    except Exception:
-        pass
+    except Exception as e:
+        lines.append(f"(Web search error: {e})")
 
     if not all_results:
         lines.append("No macro/sector news found. The market outlook may be uncertain.")

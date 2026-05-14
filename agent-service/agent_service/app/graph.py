@@ -6,7 +6,7 @@ from typing import Literal
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from agent_service.app.state import AgentState, ToolCallPlan, ToolResult, ReasoningStep
+from agent_service.app.state import AgentState, ToolCallPlan, ToolResult, ToolOutput, ReasoningStep
 from agent_service.app.llm.client_factory import create_chat_model
 from agent_service.app.tools.yfinance_tools import fetch_price_history
 from agent_service.app.tools.technicals import calculate_technicals
@@ -33,6 +33,138 @@ from agent_service.app.cache import get_cache
 
 
 CORE_TOOLS = {"fetch_market_data", "fetch_macro_research", "fetch_sentiment_news"}
+MAX_CORE_RETRIES = 2
+
+
+def _infer_tool_meta(tool_name: str, result_text: str, ok: bool, cached: bool = False) -> dict:
+    """Infer source, freshness, and warnings for a tool result."""
+    source = "unknown"
+    freshness = "cached" if cached else "unknown"
+    warnings: list[str] = []
+
+    if tool_name == "fetch_market_data":
+        if "Futu Real-Time" in result_text:
+            source = "futu"
+            freshness = "realtime"
+        elif "yfinance" in result_text:
+            source = "yfinance"
+            freshness = "delayed"
+            warnings.append("Futu unavailable — using delayed yfinance data")
+        if not ok:
+            warnings.append(f"Market data collection failed: {result_text[:120]}")
+
+    elif tool_name == "fetch_macro_research":
+        source = "web_search"
+        freshness = "delayed"
+        if not ok:
+            warnings.append(f"Macro research collection failed: {result_text[:120]}")
+        elif "No macro/sector news found" in result_text:
+            warnings.append("No macro/sector articles returned")
+
+    elif tool_name == "fetch_sentiment_news":
+        if "Finnhub" in result_text:
+            source = "finnhub"
+        elif "yfinance" in result_text:
+            source = "yfinance"
+        else:
+            source = "web_search"
+        freshness = "delayed"
+        if not ok:
+            warnings.append(f"News collection failed: {result_text[:120]}")
+
+    elif tool_name == "fetch_price_history":
+        source = "yfinance"
+        freshness = "delayed"
+        if not ok:
+            warnings.append(f"Price history failed: {result_text[:120]}")
+
+    elif tool_name == "calculate_technicals":
+        source = "computed"
+        freshness = "computed"
+        if not ok:
+            warnings.append(f"Technicals computation failed: {result_text[:120]}")
+
+    elif tool_name in ("fetch_capital_flow", "fetch_cn_market_sentiment"):
+        source = "akshare"
+        freshness = "delayed"
+        if not ok:
+            warnings.append(f"{tool_name} failed: {result_text[:120]}")
+
+    elif tool_name == "fetch_us_fundamentals":
+        source = "yfinance"
+        freshness = "delayed"
+        if not ok:
+            warnings.append(f"US fundamentals failed: {result_text[:120]}")
+
+    return {"source": source, "freshness": freshness, "warnings": warnings}
+
+
+def _normalize_tool_return(tool_name: str, result) -> tuple[str, dict, str, str, list[str]]:
+    """Normalize a tool's return value into (text, fields, source, freshness, warnings).
+
+    Accepts both old-style plain strings and new-style ToolOutput dicts.
+    """
+    if isinstance(result, dict) and "text" in result:
+        text = result["text"]
+        fields = result.get("fields", {})
+        source = result.get("source", "unknown")
+        freshness = result.get("freshness", "unknown")
+        warnings = list(result.get("warnings", []))
+    else:
+        # Old-style: plain string — fall back to regex extraction
+        text = str(result)
+        fields = _extract_fields(tool_name, text)
+        meta = _infer_tool_meta(tool_name, text, True)
+        source = meta["source"]
+        freshness = meta["freshness"]
+        warnings = meta["warnings"]
+    return text, fields, source, freshness, warnings
+
+
+def _make_tool_result(
+    tool_name: str,
+    args: dict,
+    result_text: str,
+    ok: bool,
+    call_id: str | None = None,
+    cached: bool = False,
+    fields: dict | None = None,
+    source: str | None = None,
+    freshness: str | None = None,
+    warnings: list[str] | None = None,
+) -> ToolResult:
+    """Build a ToolResult with inferred or pre-extracted metadata."""
+    summary_lines = result_text.split("\n")
+    summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
+    if len(summary) > 150:
+        summary = summary[:147] + "..."
+
+    # Use pre-extracted metadata if provided (from structured ToolOutput),
+    # otherwise infer from the result text.
+    if fields is None:
+        fields = _extract_fields(tool_name, result_text) if ok else {}
+    if source is None or freshness is None or warnings is None:
+        meta = _infer_tool_meta(tool_name, result_text, ok, cached=cached)
+        if source is None:
+            source = meta["source"]
+        if freshness is None:
+            freshness = meta["freshness"]
+        if warnings is None:
+            warnings = meta["warnings"]
+
+    result: ToolResult = {
+        "tool": tool_name,
+        "args": args,
+        "call_id": call_id or f"{tool_name}_core",
+        "summary": summary,
+        "status": "ok" if ok else "error",
+        "fields": fields,
+        "data": {"full_result": result_text},
+        "source": source,
+        "freshness": freshness,
+        "warnings": warnings,
+    }
+    return result
 
 
 def _resolve_prices(state: AgentState) -> list[float] | None:
@@ -261,6 +393,20 @@ def collect_core_data_node(state: AgentState) -> dict:
         })
         return {"steps": steps, "next_action": "plan"}
 
+    core_retries = state.get("core_retries", 0)
+    if core_retries >= MAX_CORE_RETRIES:
+        steps.append({
+            "step_type": "tool_call",
+            "status": "done",
+            "message": f"Core data still incomplete after {core_retries} retries — proceeding with available data",
+            "detail": f"missing: {', '.join(sorted(missing))}",
+        })
+        return {"steps": steps, "next_action": "plan"}
+
+    # Increment retry counter if this is a re-collection (not the first pass)
+    if existing_ok:
+        core_retries += 1
+
     steps.append({
         "step_type": "tool_call",
         "status": "active",
@@ -270,34 +416,28 @@ def collect_core_data_node(state: AgentState) -> dict:
     symbol = state["symbol"]
     finnhub_key = state.get("finnhub_api_key")
 
-    def _run_core(tool_name: str) -> tuple[str, str, bool]:
+    def _run_core(tool_name: str) -> tuple[str, str, dict, str, str, list[str], bool]:
         tool_fn = TOOLS_BY_NAME[tool_name]
         args: dict = {"symbol": symbol}
         if tool_name == "fetch_sentiment_news" and finnhub_key:
             args["finnhub_api_key"] = finnhub_key
         try:
-            return tool_name, tool_fn.invoke(args), True
+            raw = tool_fn.invoke(args)
+            text, fields, source, freshness, warnings = _normalize_tool_return(tool_name, raw)
+            return tool_name, text, fields, source, freshness, warnings, True
         except Exception as e:
-            return tool_name, f"Error executing {tool_name}: {str(e)}", False
+            return tool_name, f"Error executing {tool_name}: {str(e)}", {}, "unknown", "unknown", [str(e)], False
 
     new_results: list[ToolResult] = []
     with ThreadPoolExecutor(max_workers=len(missing)) as executor:
         futures = {executor.submit(_run_core, name): name for name in missing}
         for future in as_completed(futures):
-            tool_name, result_text, ok = future.result()
-            summary_lines = result_text.split("\n")
-            summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
-            if len(summary) > 150:
-                summary = summary[:147] + "..."
-            new_results.append({
-                "tool": tool_name,
-                "args": {"symbol": symbol},
-                "call_id": f"{tool_name}_core",
-                "summary": summary,
-                "status": "ok" if ok else "error",
-                "fields": _extract_fields(tool_name, result_text) if ok else {},
-                "data": {"full_result": result_text},
-            })
+            tool_name, result_text, fields, source, freshness, warnings, ok = future.result()
+            new_results.append(_make_tool_result(
+                tool_name, {"symbol": symbol}, result_text, ok,
+                call_id=f"{tool_name}_core",
+                fields=fields, source=source, freshness=freshness, warnings=warnings,
+            ))
 
     accumulated = existing + new_results
 
@@ -310,40 +450,38 @@ def collect_core_data_node(state: AgentState) -> dict:
         if market["region"] in ("China A-Share", "Hong Kong"):
             try:
                 cf_result = fetch_capital_flow.invoke({"symbol": symbol})
-                accumulated.append({
-                    "tool": "fetch_capital_flow",
-                    "args": {"symbol": symbol},
-                    "call_id": "fetch_capital_flow_core",
-                    "summary": cf_result.split("\n")[0] if cf_result else "Capital flow data",
-                    "status": "ok",
-                    "fields": _extract_fields("fetch_capital_flow", cf_result),
-                    "data": {"full_result": cf_result},
-                })
+                accumulated.append(_make_tool_result(
+                    "fetch_capital_flow", {"symbol": symbol}, cf_result, True,
+                    call_id="fetch_capital_flow_core",
+                ))
                 extras.append("capital flow")
-            except Exception:
-                pass
+            except Exception as e:
+                accumulated.append(_make_tool_result(
+                    "fetch_capital_flow", {"symbol": symbol},
+                    f"Error: {e}", False,
+                    call_id="fetch_capital_flow_core",
+                ))
 
         # US: Fundamentals (analyst consensus, insider trades, earnings, etc.)
         if market["region"] == "United States":
             try:
                 us_result = fetch_us_fundamentals.invoke({"symbol": symbol})
-                accumulated.append({
-                    "tool": "fetch_us_fundamentals",
-                    "args": {"symbol": symbol},
-                    "call_id": "fetch_us_fundamentals_core",
-                    "summary": us_result.split("\n")[0] if us_result else "US fundamentals data",
-                    "status": "ok",
-                    "fields": _extract_fields("fetch_us_fundamentals", us_result),
-                    "data": {"full_result": us_result},
-                })
+                accumulated.append(_make_tool_result(
+                    "fetch_us_fundamentals", {"symbol": symbol}, us_result, True,
+                    call_id="fetch_us_fundamentals_core",
+                ))
                 extras.append("US fundamentals")
-            except Exception:
-                pass
+            except Exception as e:
+                accumulated.append(_make_tool_result(
+                    "fetch_us_fundamentals", {"symbol": symbol},
+                    f"Error: {e}", False,
+                    call_id="fetch_us_fundamentals_core",
+                ))
 
         if extras:
             steps[-1]["detail"] = f"Collected {len(new_results)} core + {', '.join(extras)}"
-    except Exception:
-        pass
+    except Exception as e:
+        steps[-1]["detail"] = f"Market detection failed: {e}"
 
     steps[-1]["status"] = "done"
 
@@ -351,6 +489,7 @@ def collect_core_data_node(state: AgentState) -> dict:
         "tool_results": accumulated,
         "steps": steps,
         "next_action": "plan",
+        "core_retries": core_retries,
     }
 
 
@@ -488,12 +627,12 @@ def execute_tools_node(state: AgentState) -> dict:
             step["status"] = "active"
             step["message"] = f"Calling {step.get('detail', 'tool')}..."
 
-    def _run_tool(call: ToolCallPlan) -> tuple[str, dict, str, bool]:
+    def _run_tool(call: ToolCallPlan) -> tuple[str, dict, str, dict, str, str, list[str], bool]:
         tool_name = call["tool"]
         args = dict(call.get("args", {}))
         tool_fn = TOOLS_BY_NAME.get(tool_name)
         if tool_fn is None:
-            return tool_name, args, f"Error: Unknown tool '{tool_name}'", False
+            return tool_name, args, f"Error: Unknown tool '{tool_name}'", {}, "unknown", "unknown", [], False
         # Inject request-scoped config from state
         if tool_name == "fetch_sentiment_news" and "finnhub_api_key" not in args:
             key = state.get("finnhub_api_key") or state.get("llm_config", {}).get("finnhub_api_key")
@@ -518,21 +657,23 @@ def execute_tools_node(state: AgentState) -> dict:
             if prices:
                 args["prices"] = prices
         try:
-            return tool_name, args, tool_fn.invoke(args), True
+            raw = tool_fn.invoke(args)
+            text, fields, source, freshness, warnings = _normalize_tool_return(tool_name, raw)
+            return tool_name, args, text, fields, source, freshness, warnings, True
         except Exception as e:
-            return tool_name, args, f"Error executing {tool_name}: {str(e)}", False
+            return tool_name, args, f"Error executing {tool_name}: {str(e)}", {}, "unknown", "unknown", [str(e)], False
 
-    results_by_id: dict[str, tuple[str, bool]] = {}
+    results_by_id: dict[str, tuple[str, dict, str, str, list[str], bool]] = {}
     with ThreadPoolExecutor(max_workers=min(len(plan), 5)) as executor:
         futures = {
             executor.submit(_run_tool, call): call
             for call in plan
         }
         for future in as_completed(futures):
-            tool_name, args, result_text, ok = future.result()
+            tool_name, args, result_text, fields, source, freshness, warnings, ok = future.result()
             call = futures[future]
             cid = call.get("call_id", tool_name)
-            results_by_id[cid] = (result_text, ok)
+            results_by_id[cid] = (result_text, fields, source, freshness, warnings, ok)
 
     tool_results: list[ToolResult] = []
     for call in plan:
@@ -543,8 +684,12 @@ def execute_tools_node(state: AgentState) -> dict:
         if entry is None:
             result_text = f"Error: No result for '{tool_name}'"
             ok = False
+            fields = {}
+            source = "unknown"
+            freshness = "unknown"
+            warnings: list[str] = []
         else:
-            result_text, ok = entry
+            result_text, fields, source, freshness, warnings, ok = entry
 
         for step in steps:
             if step["status"] == "active" and step["step_type"] == "tool_call":
@@ -553,20 +698,10 @@ def execute_tools_node(state: AgentState) -> dict:
                     step["message"] = f"Completed: {tool_name}"
                     break
 
-        summary_lines = result_text.split("\n")
-        summary = summary_lines[0] if summary_lines else f"Result from {tool_name}"
-        if len(summary) > 150:
-            summary = summary[:147] + "..."
-
-        tool_results.append({
-            "tool": tool_name,
-            "args": args,
-            "call_id": cid,
-            "summary": summary,
-            "status": "ok" if ok else "error",
-            "fields": _extract_fields(tool_name, result_text) if ok else {},
-            "data": {"full_result": result_text},
-        })
+        tool_results.append(_make_tool_result(
+            tool_name, args, result_text, ok, call_id=cid,
+            fields=fields, source=source, freshness=freshness, warnings=warnings,
+        ))
 
         messages.append(HumanMessage(content=f"Tool: {tool_name}\nArgs: {json.dumps(args)}\nResult: {summary}"))
 
@@ -793,7 +928,11 @@ def decide_after_plan(state: AgentState) -> Literal["execute_tools", "observe"]:
 
 def decide_next(state: AgentState) -> Literal["collect_core_data", "plan", "synthesize", "__end__"]:
     action = state.get("next_action", "synthesize")
+    # Allow core data re-collection past MAX_ITERATIONS — collect_core_data_node
+    # enforces its own retry limit via core_retries to prevent infinite loops.
     if state.get("iteration_count", 0) >= MAX_ITERATIONS:
+        if action == "collect_core_data" and state.get("core_retries", 0) < MAX_CORE_RETRIES:
+            return "collect_core_data"
         return "synthesize"
     if action == "collect_core_data":
         return "collect_core_data"
