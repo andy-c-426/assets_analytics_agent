@@ -2,6 +2,7 @@ import httpx
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from backend.app.models.schemas import AnalysisRequest
+from backend.app.logger import logger
 
 router = APIRouter()
 
@@ -30,6 +31,11 @@ async def analyze_endpoint(symbol: str, body: AnalysisRequest):
             ) as response:
                 async for chunk in response.aiter_bytes():
                     yield chunk
+        except httpx.ConnectError:
+            logger.error("Agent service unreachable at %s", AGENT_SERVICE_URL)
+            yield b"event: error\ndata: {\"message\": \"Agent service is not running\", \"retryable\": true}\n\n"
+        except Exception as e:
+            logger.error("Proxy stream failed for %s: %s", symbol, str(e))
         finally:
             await client.aclose()
 

@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from agent_service.app.logger import logger
 from agent_service.app.state import AgentState
 from agent_service.app.graph import build_graph, _extract_fields, _make_tool_result
 
@@ -96,6 +97,11 @@ async def analyze(symbol: str, body: AnalyzeRequest):
 
 async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[str, None]:
     try:
+        logger.info(
+            "Analysis started: symbol=%s provider=%s model=%s lang=%s",
+            symbol, body.provider, body.model, body.language or "en",
+        )
+
         # Build pre-populated tool_results from pre-fetched data
         prefetched = body.prefetched_data or {}
         pre_tool_results = []
@@ -179,7 +185,9 @@ async def _stream_analysis(symbol: str, body: AnalyzeRequest) -> AsyncGenerator[
                 if updates.get("error"):
                     yield events.error_event(updates["error"])
 
+        logger.info("Analysis complete: symbol=%s", symbol)
     except Exception as e:
+        logger.error("Analysis failed: symbol=%s error=%s", symbol, str(e))
         yield events.error_event(str(e), retryable=False)
     finally:
         yield events.done()
