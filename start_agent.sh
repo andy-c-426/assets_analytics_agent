@@ -16,7 +16,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-cd "$ROOT"
+cd "$ROOT/agent-service"
 
 if [ -n "$LOG_FILE" ]; then
   mkdir -p "$ROOT/logs"

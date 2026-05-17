@@ -26,7 +26,7 @@ BACKEND_PID=$!
 
 # Agent Service
 echo "[2/3] Starting agent service on http://localhost:8001 ..."
-cd "$ROOT"
+cd "$ROOT/agent-service"
 uvicorn agent_service.app.main:app --host 0.0.0.0 --reload --port 8001 &
 AGENT_PID=$!
 
