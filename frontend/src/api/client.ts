@@ -93,3 +93,45 @@ export async function analyzeAssetStream(
   if (!res.body) throw new Error('No response body');
   return res.body;
 }
+
+// ── Chat Types ────────────────────────────────────────────────────
+
+export interface ChatDirection {
+  goal: string | null;
+  tickers: string[];
+  criteria: string[];
+  report_type: string | null;
+}
+
+export interface ChatRequest {
+  message: string;
+  history: { role: 'user' | 'assistant'; content: string }[];
+  direction: ChatDirection | null;
+  user_preferences: {
+    language: string;
+    llm_config: {
+      provider: string;
+      model: string;
+      api_key: string;
+      base_url?: string;
+    };
+    finnhub_api_key?: string;
+  };
+}
+
+// ── Chat SSE ──────────────────────────────────────────────────────
+
+export async function postChat(
+  request: ChatRequest,
+  signal?: AbortSignal
+): Promise<ReadableStream<Uint8Array>> {
+  const res = await fetch(`${BASE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!res.ok) throw new Error(`POST /chat failed: ${res.status}`);
+  if (!res.body) throw new Error('No response body');
+  return res.body;
+}
