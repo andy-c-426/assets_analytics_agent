@@ -15,6 +15,7 @@ Built with Claude Code + DeepSeek V4 Pro.
 - **Bloomberg-style analytics** — pre-computed valuation zones, momentum returns, RSI, drawdown, volatility with TTL cache
 - **Bilingual UI** — English and Simplified Chinese (zh-CN) with language toggle, covering all UI strings and LLM analysis output
 - **Parallel tool execution** — concurrent data fetching via ThreadPoolExecutor
+- **Chatbot mode** — conversational agent that guides you through discovery, proposes research plans, and runs analysis from chat. Available as a web UI (`/chat`) and terminal CLI (`./chat.sh`).
 - **Settings** — configure LLM provider, model, API key, and optional Finnhub key (stored locally, never sent to server)
 
 ## Architecture
@@ -39,7 +40,7 @@ graph TD
     Agent --> LLM
 ```
 
-- **Backend:** Python FastAPI — stateless API proxy, fetches market data from yfinance, forwards analyze requests to agent service
+- **Backend:** Python FastAPI — stateless API proxy, fetches market data from yfinance, forwards analyze requests to agent service, hosts chat endpoint with intent classification
 - **Agent Service:** Python FastAPI + LangGraph — multi-step reasoning agent with deterministic core data collection, structured field extraction, parallel execution, SSE streaming, and pre-computed analytics
 - **Frontend:** React + Vite + TypeScript — SPA with live-streamed analysis, plan reasoning display, i18n (en/zh-CN), and settings
 - **Data sources:** yfinance (primary), Futu OpenD (real-time, optional), Finnhub (news, optional), DuckDuckGo (news fallback)
@@ -125,6 +126,9 @@ cd agent-service && PYTHONPATH=. uvicorn agent_service.app.main:app --reload --p
 
 # Terminal 3 — Frontend
 cd frontend && npm run dev
+
+# Terminal 4 — Chat CLI (optional)
+./chat.sh
 ```
 
 ## API Endpoints
@@ -136,6 +140,7 @@ cd frontend && npm run dev
 | GET | `/api/assets/{symbol}` | Asset detail: profile, price, metrics, news |
 | GET | `/api/assets/{symbol}/price-history?period=1mo` | OHLCV price series (1mo, 6mo, 1y, 5y, max) |
 | POST | `/api/analyze/{symbol}` | LLM agent analysis with SSE streaming |
+| POST | `/api/chat` | Conversational chatbot with SSE streaming (discovery → analysis) |
 | GET | `/api/market-data/{symbol}` | Structured market data (agent service) |
 | GET | `/api/macro-research/{symbol}` | Macro research and sector analysis (agent service) |
 | GET | `/api/sentiment-news/{symbol}` | Sentiment news with optional Finnhub key (agent service) |
@@ -174,6 +179,26 @@ SSE event types:
 | `error` | Recoverable or non-recoverable error |
 | `done` | Stream complete |
 
+### POST /api/chat
+
+Conversational chat endpoint with 4-phase routing (discovery → proposal → execute → follow_up). Stateless — history and direction sent per request.
+
+Chat SSE event types:
+
+| Event | Description |
+|-------|-------------|
+| `clarification` | Next discovery question + updated direction |
+| `proposal` | Research plan summary for confirmation |
+| `tool_start` | Tool invocation started |
+| `tool_result` | Tool returned data summary |
+| `reasoning_chunk` | Streaming analysis text |
+| `asset_card` | Ticker detected, partial data ready |
+| `report_ready` | Full analysis report |
+| `comparison` | Multi-asset comparison complete |
+| `text` | Generic assistant message |
+| `error` | Error message with retryable flag |
+| `done` | Stream complete |
+
 ### Agent Tools
 
 #### Core (always collected, deterministic)
@@ -206,7 +231,14 @@ assets_analytics_agent/
 │   │   │   ├── search.py                 # GET /api/search
 │   │   │   ├── asset_detail.py           # GET /api/assets/{symbol}
 │   │   │   ├── price_history.py          # GET /api/assets/{symbol}/price-history
-│   │   │   └── analyze.py                # POST /api/analyze/{symbol} (SSE proxy)
+│   │   │   ├── analyze.py                # POST /api/analyze/{symbol} (SSE proxy)
+│   │   │   ├── data_widgets.py           # GET market-data/macro/sentiment proxies
+│   │   │   └── chat.py                   # POST /api/chat (SSE streaming)
+│   │   ├── chat/                         # chatbot mode
+│   │   │   ├── prompts.py                # system prompts (classifier, discovery, proposal)
+│   │   │   ├── intent.py                 # intent classifier (LLM routing)
+│   │   │   └── cli.py                    # terminal chat client (ANSI rendering)
+│   │   ├── llm.py                        # shared LLM client factory
 │   │   └── proxy/                        # external adapters
 │   │       ├── yfinance.py               # market data + search + news
 │   │       └── llm.py                    # Claude / GPT / DeepSeek routing
@@ -240,8 +272,9 @@ assets_analytics_agent/
 │   ├── src/
 │   │   ├── components/                   # SearchBar, AssetDetail, PriceChart,
 │   │   │                                 # NewsList, AnalyzePanel, SettingsDialog,
-│   │   │                                 # LanguageToggle
-│   │   ├── pages/                        # SearchPage, AssetPage
+│   │   │                                 # LanguageToggle, ChatMessage, ChatInput,
+│   │   │                                 # DataWidget
+│   │   ├── pages/                        # SearchPage, AssetPage, ChatPage
 │   │   ├── i18n/                         # translations.ts, LocaleContext.tsx
 │   │   ├── api/                          # API client + types
 │   │   └── App.tsx                       # routing + providers
@@ -269,11 +302,11 @@ Your API keys are stored in your browser's localStorage and sent directly to the
 ### Run Tests
 
 ```bash
-# Backend tests
+# Backend tests (12 tests)
 cd backend && python3 -m pytest tests/ -v
 
-# Agent service tests (30 unit tests)
-cd agent-service && PYTHONPATH=. python3 -m pytest tests/test_graph.py -v
+# Agent service tests (50 unit tests)
+cd agent-service && PYTHONPATH=. python3 -m pytest tests/ -v
 
 # Frontend type check
 cd frontend && npx tsc --noEmit

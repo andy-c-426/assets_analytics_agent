@@ -9,3 +9,4 @@ Each file in this directory records a completed feature or phase. Files are name
 | Phase 1 | [phase-1-core-flow.md](phase-1-core-flow.md) | completed |
 | Phase 2 | [phase-2-agent-service.md](phase-2-agent-service.md) | completed |
 | Phase 3 | [phase-3-agent-stabilization.md](phase-3-agent-stabilization.md) | completed |
+| Phase 4 | [phase-4-chatbot-mode.md](phase-4-chatbot-mode.md) | completed |

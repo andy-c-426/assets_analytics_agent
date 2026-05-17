@@ -8,7 +8,7 @@ A web application for searching and analyzing financial assets (stocks, ETFs) ac
 
 ## Architecture
 
-- **Backend:** Python FastAPI — stateless API proxy, forwards analyze requests to agent service
+- **Backend:** Python FastAPI — stateless API proxy, forwards analyze requests to agent service, hosts chat endpoint with intent classification via lightweight LLM
 - **Agent Service:** Python FastAPI + LangGraph — multi-step reasoning agent (collect_core_data → plan → execute_tools → observe → synthesize) with deterministic coverage check, parallel tool execution, streaming SSE, and analytics computation
 - **Frontend:** React + Vite TypeScript SPA — search, asset detail, analysis panel with live streaming, settings
 - **Data:** yfinance for multi-market price data, fundamentals, and search autocomplete; Futu OpenD for real-time market snapshots; DuckDuckGo / Finnhub for news
@@ -20,7 +20,9 @@ A web application for searching and analyzing financial assets (stocks, ETFs) ac
 backend/                    # Python FastAPI (proxy layer)
   app/main.py               # entry point
   app/models/               # pydantic schemas
-  app/activities/           # one file per endpoint (search, asset_detail, price_history, analyze)
+  app/activities/           # one file per endpoint (search, asset_detail, price_history, analyze, data_widgets, chat)
+  app/chat/                 # chatbot mode (prompts, intent classifier, CLI)
+  app/llm.py                # shared LLM client factory
   app/proxy/                # external adapters (yfinance.py, llm.py)
 agent-service/              # Python FastAPI (LangGraph agent)
   agent_service/app/
@@ -35,10 +37,10 @@ agent-service/              # Python FastAPI (LangGraph agent)
     tools/                  # LangChain tools (market_data, macro_research, sentiment_news, price_history, technicals)
     llm/                    # LLM client factory (Claude/GPT/DeepSeek)
 frontend/                   # React + Vite
-  src/components/           # SearchBar, AssetDetail, PriceChart, NewsList, AnalyzePanel, SettingsDialog, LanguageToggle
-  src/pages/                # SearchPage, AssetPage
+  src/components/           # SearchBar, AssetDetail, PriceChart, NewsList, AnalyzePanel, SettingsDialog, LanguageToggle, ChatMessage, ChatInput
+  src/pages/                # SearchPage, AssetPage, ChatPage
   src/i18n/                 # translations.ts, LocaleContext.tsx (en / zh-CN)
-  src/api/client.ts         # API client
+  src/api/client.ts         # API client (search, asset, analyze, chat)
 tests/
 ```
 
@@ -52,8 +54,9 @@ tests/
 | GET | `/api/assets/{symbol}` | Asset detail: profile, price, metrics, news |
 | GET | `/api/assets/{symbol}/price-history?period=` | OHLCV series |
 | POST | `/api/analyze/{symbol}` | LLM agent analysis with SSE streaming (body: provider, model, api_key, base_url, finnhub_api_key, language, prefetched_data) |
+| POST | `/api/chat` | Conversational chatbot with SSE streaming — 4-phase routing (discovery → proposal → execute → follow_up) |
 
-Agent service also exposes direct-access endpoints: `GET /market-data/{symbol}`, `GET /macro-research/{symbol}`, `GET /sentiment-news/{symbol}`.
+Agent service also exposes direct-access endpoints: `GET /market-data/{symbol}`, `GET /macro-research/{symbol}`, `GET /sentiment-news/{symbol}`, `GET /capital-flow/{symbol}`, `GET /cn-sentiment/{symbol}`, `GET /us-fundamentals/{symbol}`.
 
 ## Docs
 
