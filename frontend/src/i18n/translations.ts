@@ -4,6 +4,11 @@ const translations: Record<string, Record<Lang, string>> = {
   'app.title': { en: 'Asset Analytics', 'zh-CN': '资产分析' },
   'nav.brand': { en: 'Asset Analytics', 'zh-CN': '资产分析' },
   'nav.search': { en: 'Search', 'zh-CN': '搜索' },
+  'nav.chat': { en: 'Chat', 'zh-CN': '对话' },
+
+  'chat.welcome': { en: 'Asset Analytics Chat', 'zh-CN': '资产分析助手' },
+  'chat.welcomeSub': { en: 'Describe your investment goals and I\'ll guide you through research and analysis.', 'zh-CN': '描述您的投资目标，我将引导您完成研究和分析。' },
+  'chat.placeholder': { en: 'Ask about any stock... (Shift+Enter for newline)', 'zh-CN': '询问任意股票...（Shift+Enter 换行）' },
 
   'home.title': { en: 'Analyze Any Asset, Globally', 'zh-CN': '全球资产智能分析' },
   'home.subtitle': { en: 'Real-time data · AI-powered insights', 'zh-CN': '实时数据 · AI 驱动洞察' },

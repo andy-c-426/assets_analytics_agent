@@ -5,6 +5,7 @@ import { LocaleProvider, useLocale } from './i18n/LocaleContext';
 import LanguageToggle from './components/LanguageToggle';
 import SearchPage from './pages/SearchPage';
 import AssetPage from './pages/AssetPage';
+import ChatPage from './pages/ChatPage';
 import styles from './App.module.css';
 
 function NavBar() {
@@ -16,6 +17,7 @@ function NavBar() {
       </Link>
       <div className={styles.navRight}>
         <Link to="/" className={styles.navLink}>{t('nav.search')}</Link>
+        <Link to="/chat" className={styles.navLink}>{t('nav.chat')}</Link>
         <LanguageToggle className={styles.themeToggle} />
         <ThemeToggle className={styles.themeToggle} />
       </div>
@@ -37,6 +39,7 @@ export default function App() {
             <Routes>
               <Route path="/" element={<PageWrapper><SearchPage /></PageWrapper>} />
               <Route path="/asset/:symbol" element={<PageWrapper><AssetPage /></PageWrapper>} />
+              <Route path="/chat" element={<PageWrapper><ChatPage /></PageWrapper>} />
             </Routes>
           </div>
         </BrowserRouter>
