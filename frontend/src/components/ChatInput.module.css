@@ -1,0 +1,57 @@
+.inputBar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.textarea {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  background: var(--bg-subtle);
+  color: var(--text);
+  max-height: 120px;
+}
+
+.textarea:focus {
+  border-color: var(--accent);
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.sendBtn, .stopBtn {
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sendBtn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.sendBtn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.stopBtn {
+  background: var(--red);
+  color: #fff;
+}

@@ -1,0 +1,118 @@
+.message {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  max-width: 85%;
+  line-height: 1.6;
+  font-size: 14px;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.userMsg {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.assistantMsg {
+  align-self: flex-start;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+
+.systemMsg {
+  align-self: center;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.assetCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin: 4px 0;
+}
+
+.assetSymbol {
+  font-weight: 600;
+  font-size: 15px;
+  font-family: var(--font-mono);
+}
+
+.assetLink {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.assetLink:hover {
+  text-decoration: underline;
+}
+
+.analysisBlock {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.choiceRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.choiceBtn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+
+.choiceBtn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.errorBanner {
+  padding: 10px 14px;
+  background: var(--red-subtle);
+  color: var(--red);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.loadingDots {
+  animation: blink 1.4s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
