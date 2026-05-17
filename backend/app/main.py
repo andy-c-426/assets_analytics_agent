@@ -42,6 +42,9 @@ app.include_router(analyze_router)
 from backend.app.activities.data_widgets import router as data_widgets_router
 app.include_router(data_widgets_router)
 
+from backend.app.activities.chat import router as chat_router
+app.include_router(chat_router)
+
 
 @app.get("/api/health")
 def health():
